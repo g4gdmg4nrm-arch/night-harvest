@@ -1,7 +1,7 @@
 // v19: short silent between-level scenes (5-10 s) after levels 1-9. Tap / key skips.
 // Craft rises off -> an army truck convoy crosses the dark road -> the next place fades in.
-import { audio } from "./audio.js?v=19";
-import { LEVELS } from "./config.js?v=19";
+import { audio } from "./audio.js?v=20";
+import { LEVELS } from "./config.js?v=20";
 
 const DUR = { 1: 8, 2: 7, 3: 7, 4: 7, 5: 8, 6: 7, 7: 8, 8: 8, 9: 9 }; // seconds, matching clipAfterLn (ALL-LEVELS-SOUND.md)
 

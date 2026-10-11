@@ -1,21 +1,21 @@
 // The first encounter: observe from cloud, descend, feed on the cow, get noticed, escape.
-import { EMP, CRAFTS, VH, WORLD_W, GROUND, HOUSE, COW_X, CLOUD_LAYERS, CREATURE_START, TUNE, LEVELS, levelById, STORM_LAYERS, STORM } from "./config.js?v=19";
-import { Area51 } from "./a51.js?v=19";
-import { Town } from "./town.js?v=19";
-import { Rodeo } from "./rodeo.js?v=19";
-import { Suburb } from "./suburb.js?v=19";
-import { Power } from "./power.js?v=19";
-import { Convoy } from "./convoy.js?v=19";
-import { Coast } from "./coast.js?v=19";
+import { EMP, CRAFTS, VH, WORLD_W, GROUND, HOUSE, COW_X, CLOUD_LAYERS, CREATURE_START, TUNE, LEVELS, levelById, STORM_LAYERS, STORM } from "./config.js?v=20";
+import { Area51 } from "./a51.js?v=20";
+import { Town } from "./town.js?v=20";
+import { Rodeo } from "./rodeo.js?v=20";
+import { Suburb } from "./suburb.js?v=20";
+import { Power } from "./power.js?v=20";
+import { Convoy } from "./convoy.js?v=20";
+import { Coast } from "./coast.js?v=20";
 const MODS = { town: Town, rodeo: Rodeo, suburb: Suburb, power: Power, convoy: Convoy, coast: Coast };
-import { clamp, damp, lerp, makeCanvas, noise1, smoothstep, TAU } from "./util.js?v=19";
-import { Wind } from "./wind.js?v=19";
-import { CloudField, cloudSprites } from "./clouds.js?v=19";
-import { Scene } from "./scene.js?v=19";
-import { Creature, MenuDirector } from "./creature.js?v=19";
-import { Witness, Car, Cow, HerdCow } from "./actors.js?v=19";
-import { audio } from "./audio.js?v=19";
-import { hwyStart, hwyTick, hwyDraw, hwyTruck, HWY } from "./highway.js?v=19";
+import { clamp, damp, lerp, makeCanvas, noise1, smoothstep, TAU } from "./util.js?v=20";
+import { Wind } from "./wind.js?v=20";
+import { CloudField, cloudSprites } from "./clouds.js?v=20";
+import { Scene } from "./scene.js?v=20";
+import { Creature, MenuDirector } from "./creature.js?v=20";
+import { Witness, Car, Cow, HerdCow } from "./actors.js?v=20";
+import { audio } from "./audio.js?v=20";
+import { hwyStart, hwyTick, hwyDraw, hwyTruck, HWY } from "./highway.js?v=20";
 
 export class Game {
   constructor(canvas, trees, settings) {
@@ -172,6 +172,7 @@ export class Game {
     clearTimeout(this.thunderTimer);
     clearTimeout(this.whineTimer);
     audio.stopAll();
+    if (!menu && !this.L.highway && (this.L.id === 2 || this.L.id === 3)) this.warmOnce(this.L.id); // v20 (level 4 warms in hwyStart)
     if (!menu && this.L.highway) hwyStart(this); // level 4: old music off, warm only level 4's pack
     else if (!menu) audio.setMusic("calm");
   }
@@ -212,7 +213,14 @@ export class Game {
     ctx.globalCompositeOperation = "source-over";
   }
 
+  /** v20: warm a level's sound pack once per level start (module constructors also call reset). */
+  warmOnce(n) {
+    if (this._warmed === n) return;
+    this._warmed = n;
+    audio.warmLevel(n);
+  }
   startPlay(level = this.level) {
+    this._warmed = null;
     this.setLevel(level);
     if (this.isMod) this.mod.checkpoint = 0; // a fresh start begins in the hangar
     this.mode = "play";
@@ -387,6 +395,7 @@ export class Game {
       this.shake = 6;
       if (playing) {
         audio.stormRip(this.panOf(this.camX));
+        if (this.L.id === 3) audio.fx("l3StingCoverTorn", { gain: 0.85 }); // v20: cover torn away
         // the gust bangs the screen door; anyone calm indoors comes out to look
         clearTimeout(this.bangTimer);
         this.bangTimer = setTimeout(() => {
@@ -407,6 +416,7 @@ export class Game {
       if (playing) {
         audio.releaseDuck(0.5);
         audio.fx("thunderClose", { pan: this.panOf(this.camX + this.VW * 0.6), dist: 0.15, gain: 1 });
+        if (this.L.id === 3) audio.fx("l3StingFlash", { gain: 0.85 }); // v20
         this.flashThunderless = true; // this flash's thunder already played
         this.preFlash = true; // no extra hush: the calm hole was the hush
         this.nextFlash = 0.05;
@@ -679,6 +689,7 @@ export class Game {
     if (this.dogCool > 0) return;
     this.dogCool = 9;
     audio.fx("dog", { pan: this.panOf(HOUSE.x + 400), dist: Math.max(dist, this.distOf(HOUSE.x + 400)) });
+    if (this.L.id === 2 && this.mode === "play") audio.fx("l2StingDogLunge", { pan: this.panOf(HOUSE.x + 400), gain: 0.8 }); // v20
     if (this.mode === "play") this.witness.hear(this.creature.x);
   }
 
@@ -963,6 +974,7 @@ export class Game {
           this.porchDark = false;
           this.porchSnap = 2.5;
           audio.shock("porch");
+          if (this.L.id === 2) audio.fx("l2StingPorchLight", { pan: this.panOf(HOUSE.door), gain: 0.85 }); // v20
           this.witness.scared = true;
           this.searchDelay = 0.01;
           this.flicker = 0;
