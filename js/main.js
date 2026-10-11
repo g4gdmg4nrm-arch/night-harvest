@@ -1,9 +1,10 @@
 // Boot, settings, menus, the frame loop and automatic quality scaling.
-import { VH, LEVELS, LOCK_LEVELS } from "./config.js?v=15";
-import { loadImage, clamp } from "./util.js?v=15";
-import { Game } from "./game.js?v=15";
-import { Input } from "./input.js?v=15";
-import { audio } from "./audio.js?v=15";
+import { VH, LEVELS, LOCK_LEVELS } from "./config.js?v=19";
+import { loadImage, clamp } from "./util.js?v=19";
+import { Game } from "./game.js?v=19";
+import { Input } from "./input.js?v=19";
+import { audio } from "./audio.js?v=19";
+import { playInterlude } from "./interlude.js?v=19";
 
 const $ = (id) => document.getElementById(id);
 const KEY = "nh-settings-v1";
@@ -18,7 +19,7 @@ function loadSettings() {
     }
     s.brightness = clamp(Number(s.brightness) || 1, 0.7, 1.5);
     for (const k of ["music", "amb", "sfx"]) s[k] = clamp(Number(s[k]), 0, 1);
-    if (!["auto", "low", "medium", "high"].includes(s.quality)) s.quality = "auto";
+    if (!["auto", "lite", "low", "medium", "high"].includes(s.quality)) s.quality = "auto";
     if (!["stalker", "raider"].includes(s.craft)) s.craft = "stalker";
     return s;
   } catch {
@@ -94,12 +95,12 @@ async function boot() {
   );
 
   // ------------------------------------------------------------ quality and sizing
-  const Q = { low: 0, medium: 1, high: 2 };
+  const Q = { lite: -1, low: 0, medium: 1, high: 2 }; // v17: Lite tier for old iPhones/iPads
   let q = settings.quality === "auto" ? 1 : Q[settings.quality]; // v13: auto starts at medium (old ternary was 1 either way)
   let autoUps = 0;
   const pixelRatio = () => {
     const d = window.devicePixelRatio || 1;
-    return q >= 2 ? Math.min(d, 2) : q >= 1 ? Math.min(d, 1.5) : Math.min(d, 1) * 0.8;
+    return q >= 2 ? Math.min(d, 2) : q >= 1 ? Math.min(d, 1.5) : q >= 0 ? Math.min(d, 1) * 0.8 : Math.min(d, 1) * 0.6;
   };
   const resize = () => {
     const w = window.innerWidth;
@@ -115,7 +116,7 @@ async function boot() {
     $("rotate").classList.toggle("hidden", !(isTouch && h > w));
   };
   const applyQuality = (nq) => {
-    q = clamp(nq, 0, 2);
+    q = clamp(nq, -1, 2);
     game.setQuality(q);
     resize();
   };
@@ -203,10 +204,16 @@ async function boot() {
   let a51Hint = "";
   let a51HintT = 0;
   const setHint = () => {
-    if (game.L.kind === "a51") {
-      a51Hint = game.a51.hint;
+    if (game.isMod) {
+      a51Hint = game.mod.hint;
       a51HintT = 0;
       $("hint").textContent = a51Hint;
+      return;
+    }
+    if (game.L.highway) {
+      $("hint").textContent = touchy()
+        ? "Lightning gives you away  ·  stay in cloud when the sky goes quiet  ·  trucks are hunting"
+        : "Lightning gives you away  ·  stay in cloud when the sky goes quiet  ·  SPACE feed  ·  SHIFT burst";
       return;
     }
     if (game.L.storm) {
@@ -235,7 +242,7 @@ async function boot() {
     stopMenuHeart();
     game.startPlay(level);
     setHint();
-    $("hud").classList.toggle("a51", game.L.kind === "a51");
+    $("hud").classList.toggle("a51", game.isMod);
     show("energy", false);
     eVis = null; // v11: re-sync the Energy HUD from scratch on every start
     show("btnNext", false);
@@ -271,7 +278,12 @@ async function boot() {
   };
   $("btnStart").onclick = () => start(1);
   $("btnAgain").onclick = () => start(level);
-  $("btnNext").onclick = () => unlocked(level + 1) && start(level + 1);
+  $("btnNext").onclick = () => {
+    if (!unlocked(level + 1)) return;
+    const from = level;
+    show("end", false);
+    playInterlude(from, () => start(from + 1)); // v19: short scene between levels (tap skips)
+  };
   $("btnLevels").onclick = () => {
     syncLevels();
     show("menu", false);
@@ -296,7 +308,7 @@ async function boot() {
   game.onEvent = (e) => {
     stats.log.push([Math.round(game.gt * 10) / 10, e]);
     if (e === "fail") {
-      $("seen").textContent = game.L.kind === "a51" ? "Caught." : "Seen.";
+      $("seen").textContent = game.isMod ? "Caught." : "Seen.";
       show("seen", true);
       input.releaseAll();
     }
@@ -313,19 +325,36 @@ async function boot() {
       if (!progress.beaten.includes(lv)) progress.beaten.push(lv), saveProgress(progress);
       setTimeout(() => {
         const L = LEVELS.find((l) => l.id === lv) || {};
-        $("endTitle").textContent = L.kind === "a51" ? "Out." : "Gone.";
+        const end = L.kind === "coast" && game.coast ? game.coast.ending : null;
+        const T = { a51: "Out.", town: "Quiet again.", rodeo: "Not fooled.", suburb: "No signal.", power: "Static.", convoy: "Through." };
+        const TX = {
+          town: "One by one the porch lights go out. By morning, the whole town will swear it was a dream.",
+          rodeo: "Behind you the bulbs keep burning over a cow that was never there. Next time, they'll try something smarter.",
+          suburb: "Somewhere a phone uploads eleven seconds of black sky. Nobody will believe it.",
+          power: "The radios hiss for an hour after it's gone. The night shift logs it as a fault on line four.",
+          convoy: "Behind you the convoy idles on the ridge, lights still sweeping empty cloud. Ahead, the first grey over the sea.",
+        };
+        $("endTitle").textContent = end === "space" ? "Free." : end === "captured" ? "Taken." : T[L.kind] || "Gone.";
         $("endText").textContent =
-          L.kind === "a51"
+          end === "space"
+            ? "The sun comes up over an empty sea. High above it, something dark slips out past the last cloud and keeps going."
+            : end === "captured"
+            ? "Too weak to climb. The lights close in from every side, and the sea goes quiet. They have you now."
+            : TX[L.kind]
+            ? TX[L.kind]
+            : L.kind === "a51"
             ? "The base is still screaming behind you. Somewhere out there, a farm is asleep."
-            : L.storm
+            : L.highway
+              ? "The trucks roll on toward town. Nobody looked up."
+              : L.storm
               ? "The storm closes over the farm. Nothing saw it leave."
               : "The night closes over the farm.";
-        show("btnNext", unlocked(lv + 1));
+        show("btnNext", !end && unlocked(lv + 1));
         show("hud", false);
         show("end", true);
       }, 3200);
     }
-    if (game.L.kind !== "a51" && (e === "harvested" || e.startsWith("spotted"))) $("hint").style.opacity = "0";
+    if (!game.isMod && (e === "harvested" || e.startsWith("spotted"))) $("hint").style.opacity = "0";
   };
 
   // ------------------------------------------------------------ Area 51 HUD: the hint follows the level's state, the Energy bar
@@ -335,7 +364,7 @@ async function boot() {
   let eGainT = 0;
   let ePendW = "";
   const syncA51 = (dt) => {
-    const a = game.a51;
+    const a = game.mod;
     if (a.hint !== a51Hint) {
       a51Hint = a.hint;
       a51HintT = 0;
@@ -396,7 +425,7 @@ async function boot() {
     if (input.takeRestart() && game.mode === "play") game.resetEncounter(false);
     if (!paused) {
       game.update(dt, input);
-      if (game.L.kind === "a51" && game.mode !== "menu") syncA51(dt);
+      if (game.isMod && game.mode !== "menu") syncA51(dt);
       else if (game.mode === "play" && game.hintT > 12) $("hint").style.opacity = "0";
     }
     syncEmp();
@@ -410,13 +439,13 @@ async function boot() {
     if (settings.quality === "auto" && raw < 250) {
       acc += raw;
       accN++;
-      if (accN >= 90) {
+      if (accN >= 90 || acc > 1500) { // v16: also decide after 1.5 s, so a 10 fps device reacts in seconds, not 9+
         const avg = acc / accN;
         const wl = stats.work.slice(-accN);
         const wAvg = wl.reduce((a, b) => a + b, 0) / Math.max(1, wl.length);
         // v13: only step down when our own render work is heavy (iOS Low Power Mode caps rAF at 30 fps,
         // which used to look like a slow device and dropped quality for nothing)
-        if (avg > 21 && wAvg > 9 && q > 0) {
+        if (avg > 21 && wAvg > 9 && q > -1) {
           applyQuality(q - 1);
           goodFor = 0;
         } else if (avg < 14) {
@@ -435,9 +464,23 @@ async function boot() {
     stats.work = stats.work || [];
     stats.work.push(work);
     if (stats.work.length > 600) stats.work.shift();
-    requestAnimationFrame(frame);
   };
-  requestAnimationFrame(frame);
+  // v16: one bad frame (an exception in update/render) used to stop the rAF loop for good, freezing the
+  // game. Keep the loop alive, log once, and recover from a non-finite craft position by restarting.
+  let frameErrs = 0;
+  const safeFrame = (now) => {
+    requestAnimationFrame(safeFrame);
+    try {
+      frame(now);
+    } catch (e) {
+      if (frameErrs++ < 3) console.error("frame error", e);
+      const c = game.creature;
+      if (!Number.isFinite(c.x) || !Number.isFinite(c.y) || !Number.isFinite(game.camX)) {
+        try { game.resetEncounter(game.mode === "menu"); } catch { /* ignore */ }
+      }
+    }
+  };
+  requestAnimationFrame(safeFrame);
   window.__nh = { game, input, audio, stats, settings, start, toMenu, setPaused, applyQuality, progress };
 }
 
