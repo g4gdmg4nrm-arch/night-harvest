@@ -5,11 +5,11 @@
 // Searchlight fairness (Game King / Gamer Girl): the ballast hum swells as a beam swings near you; a beam that
 // touches you HESITATES (everything goes quiet, ~1.5 s, about 1.2 s if you're low and feeding) before it can lock.
 // Leave the cone or reach thick cloud in that window and it loses you. Only a locked beam builds exposure.
-import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=15";
-import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=15";
-import { CloudField, cloudSprites } from "./clouds.js?v=15";
-import { Cow } from "./actors.js?v=15";
-import { audio } from "./audio.js?v=15";
+import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=19";
+import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=19";
+import { CloudField, cloudSprites } from "./clouds.js?v=19";
+import { Cow } from "./actors.js?v=19";
+import { audio } from "./audio.js?v=19";
 
 const HIDE = 0.62; // cloud density that hides you from a beam
 const wrapA = (a) => {
@@ -32,7 +32,7 @@ function glowSprite(r, g, b) {
 }
 
 /** People: scientists in the hangar (pale coats), the pen guard (dark, torch). Silhouettes that walk, look up, run. */
-class Figure {
+export class Figure {
   constructor(x, kind, dir = 1) {
     this.x0 = x;
     this.kind = kind;
@@ -259,22 +259,23 @@ class Truck {
 }
 
 export class Area51 {
-  constructor(game) {
+  constructor(game, C = A51, CL = A51_CLOUDS) {
     this.g = game;
-    this.clouds = new CloudField(A51_CLOUDS, game.quality, { period: 170, regrow: 0.2 });
-    this.cows = A51.cows.map((x, i) => {
+    this.C = C; // level config (Town / Rodeo / Suburb / Power / Convoy / Coast reuse this class with their own)
+    this.clouds = new CloudField(CL, game.quality, { period: 170, regrow: 0.2 });
+    this.cows = this.C.cows.map((x, i) => {
       const c = new Cow();
       c.homeX = x;
       c.flip = i % 2 ? 1 : -1;
       return c;
     });
     this.scientists = [new Figure(470, "sci", 1), new Figure(820, "sci", -1), new Figure(905, "sci", -1)];
-    this.guard = new Figure(A51.guard.x, "guard", -1);
-    this.soldiers = A51.soldiers.map((S) => new Figure(S.x, "soldier", S.dir));
+    this.guard = new Figure(this.C.guard.x, "guard", -1);
+    this.soldiers = this.C.soldiers.map((S) => new Figure(S.x, "soldier", S.dir));
     this.active = []; // v13: reused list of live lights (no per-frame array allocation)
     this.lastKnown = { x: 0, y: 0 };
     this.trucks = [new Truck(0), new Truck(1)];
-    this.lights = A51.towers.map((T, i) => ({ ...T, i, kind: "tower" }));
+    this.lights = this.C.towers.map((T, i) => ({ ...T, i, kind: "tower" }));
     this.truckLights = this.trucks.map((tr, i) => ({ x: 0, y: 0, c: -1.2, r: 0.55, sp: 0.5, ph: i * 2, i: 10 + i, kind: "truck", truck: tr }));
     this.glowW = glowSprite(235, 240, 255);
     this.glowS = glowSprite(255, 160, 70); // sodium
@@ -347,7 +348,7 @@ export class Area51 {
       }
       return c;
     };
-    this.farW = Math.ceil(A51.W * 0.12 + 2400);
+    this.farW = Math.ceil(this.C.W * 0.12 + 2400);
     this.far = ridge(this.farW, 220, 200, 120, 0.0016, 0.007, "#141821", "rgba(120,132,152,0.22)", 3);
     {
       const x = this.far.getContext("2d");
@@ -357,7 +358,7 @@ export class Area51 {
         x.fillRect(px, 196 + r() * 18, 1.5, 1.5);
       }
     }
-    this.nearW = Math.ceil(A51.W * 0.32 + 2400);
+    this.nearW = Math.ceil(this.C.W * 0.32 + 2400);
     this.ridgeNear = ridge(this.nearW, 160, 150, 52, 0.0035, 0.013, "#0c0e12", "rgba(90,98,112,0.18)", 11);
     this.floor = makeCanvas(4, 180);
     {
@@ -370,7 +371,7 @@ export class Area51 {
       x.fillRect(0, 0, 4, 180);
     }
     this.scrub = [];
-    for (let i = 0; i < 160; i++) this.scrub.push({ x: r() * A51.W, s: 0.5 + r() * 1.2, y: r() * 26 });
+    for (let i = 0; i < 160; i++) this.scrub.push({ x: r() * this.C.W, s: 0.5 + r() * 1.2, y: r() * 26 });
   }
 
   // ---------------------------------------------------------------- state
@@ -380,7 +381,7 @@ export class Area51 {
     const g = this.g;
     const c = g.creature;
     this.clouds.reset();
-    const start = cp === 0 ? A51.start : cp === 1 ? A51.checkpoint0 : A51.checkpoint1;
+    const start = cp === 0 ? this.C.start : cp === 1 ? this.C.checkpoint0 : this.C.checkpoint1;
     c.reset(start.x, start.y);
     this.t = 0;
     this.phase = cp === 0 ? "held" : "out"; // held -> free (in the hangar) -> out
@@ -394,7 +395,7 @@ export class Area51 {
     this.cableSnap = cp === 0 ? 0 : 1;
     this.facade = cp === 0 ? 0 : 1;
     if (cp === 0) this.cpEnergy2 = null;
-    this.energy = cp === 2 ? (this.cpEnergy2 != null ? this.cpEnergy2 : 0.5) : A51.energyStart;
+    this.energy = cp === 2 ? (this.cpEnergy2 != null ? this.cpEnergy2 : 0.5) : this.C.energyStart;
     this.energyShown = this.energy;
     this.barVisible = cp > 0;
     this.energyPending = 0;
@@ -467,7 +468,7 @@ export class Area51 {
     this.weakWarned = false;
     this.feedHeard = false;
     this.nudged = false;
-    this.camX = cp === 0 ? 0 : clamp(start.x - g.VW * 0.5, 0, A51.W - g.VW);
+    this.camX = cp === 0 ? 0 : clamp(start.x - g.VW * 0.5, 0, this.C.W - g.VW);
     this.frameX = null;
     this.idleT = 0;
     this.applyBounds();
@@ -481,10 +482,10 @@ export class Area51 {
 
   applyBounds() {
     const c = this.g.creature;
-    const H = A51.hangar;
-    if (this.phase === "held") c.bounds = { x0: A51.start.x - 14, x1: A51.start.x + 14, y0: A51.start.y - 10, y1: A51.start.y + 8 };
-    else if (this.phase === "free") c.bounds = { x0: H.x0 + 160, x1: this.doorOpen > 0.55 ? A51.W - 160 : H.x1 - 150, y0: H.roof + 48, y1: GROUND - 120 };
-    else c.bounds = { x0: 160, x1: A51.W - 160, y0: 70, y1: GROUND - 120 };
+    const H = this.C.hangar;
+    if (this.phase === "held") c.bounds = { x0: this.C.start.x - 14, x1: this.C.start.x + 14, y0: this.C.start.y - 10, y1: this.C.start.y + 8 };
+    else if (this.phase === "free") c.bounds = { x0: H.x0 + 160, x1: this.doorOpen > 0.55 ? this.C.W - 160 : H.x1 - 150, y0: H.roof + 48, y1: GROUND - 120 };
+    else c.bounds = { x0: 160, x1: this.C.W - 160, y0: 70, y1: GROUND - 120 };
   }
 
   setHint() {
@@ -492,9 +493,9 @@ export class Area51 {
     let h = "";
     if (this.phase === "held") h = touch ? "Starving  ·  push the stick to tear free" : "Starving  ·  push to tear free  ·  WASD / arrows";
     else if (this.phase === "free") h = touch ? "The door  ·  push into it, or BURST through" : "The door  ·  push into it, or SHIFT to burst through";
-    else if (!this.harvested && this.g.creature.x > A51.fence - 60) h = "Go back  ·  you haven't fed  ·  the pen is behind you";
+    else if (!this.harvested && this.g.creature.x > this.C.fence - 60) h = "Go back  ·  you haven't fed  ·  the pen is behind you";
     else if (!this.harvested) h = touch ? "Feed in the pen  ·  hold FEED when the lights swing away" : "Feed in the pen  ·  hold SPACE when the lights swing away";
-    else if (this.energy < A51.energyMinExit) h = "Too weak to leave  ·  feed again";
+    else if (this.energy < this.C.energyMinExit) h = "Too weak to leave  ·  feed again";
     else h = "Get past the fence  ·  into the dark cloud";
     this.hint = h;
   }
@@ -572,7 +573,7 @@ export class Area51 {
       return;
     }
     if (this.phase === "free") {
-      const atDoor = c.x > A51.hangar.x1 - 175;
+      const atDoor = c.x > this.C.hangar.x1 - 175;
       if (atDoor && m.x > 0.4) this.doorStrain += dt;
       if (this.doorT < 0 && atDoor && (burst || this.doorStrain > 1.0)) this.breakDoor(burst);
       if (burst && c.burst()) this.onBurst(); // bursts in the hangar are free (adrenaline)
@@ -580,16 +581,16 @@ export class Area51 {
     }
     if (input.takeEmp && input.takeEmp() && this.g.tryEmp()) this.fireEmp();
     if (burst) {
-      const full = this.energy >= A51.burstCost;
+      const full = this.energy >= this.C.burstCost;
       c.burstScale = full ? 1 : 0.55; // an empty tank still twitches, just weakly
       if (c.burst()) {
-        this.energy = Math.max(0, this.energy - A51.burstCost);
+        this.energy = Math.max(0, this.energy - this.C.burstCost);
         this.onBurst();
         if (!full) this.g.onEvent("weak-burst");
       }
     }
     // hard climbs spend a little
-    if (c.inY < -0.55 && c.vy < -110 && !c.feeding) this.energy = Math.max(0, this.energy - A51.climbCost * dt);
+    if (c.inY < -0.55 && c.vy < -110 && !c.feeding) this.energy = Math.max(0, this.energy - this.C.climbCost * dt);
     c.feeding = input.feed && c.sinceBurst > 0.3;
     const cow = this.feedTarget();
     if (c.feeding && cow && Math.abs(c.x - cow.x) < TUNE.feedRangeX + 80) {
@@ -639,7 +640,7 @@ export class Area51 {
     g.shake = burst ? 8 : 5;
     // the door is the shock: the base air drains away, then the rollers groan and the door tears up
     audio.fx("hangarDoor", { gain: 1 }); // v11 (Gamer Girl): plain hit, no hush/dip before it
-    this.sparks(A51.hangar.x1 - 6, GROUND - 160, 26);
+    this.sparks(this.C.hangar.x1 - 6, GROUND - 160, 26);
     g.onEvent("a51-door");
   }
 
@@ -672,7 +673,7 @@ export class Area51 {
 
   /** After the breakout the hangar is solid: you can't hide back inside it. */
   solidHangar(c) {
-    const H = A51.hangar;
+    const H = this.C.hangar;
     if (this.phase !== "out") {
       if (this.phase === "free" && this.doorOpen > 0.55 && c.x > H.x1 + 170) {
         this.phase = "out";
@@ -768,13 +769,13 @@ export class Area51 {
     if (y > L.y - 10 && !(L.dip > 0.05)) return 9; // v11: a beam dipped onto the pen can light a low craft
     const dx = x - L.x;
     const dy = y - L.y;
-    if (dx * dx + dy * dy > A51.beamLen * A51.beamLen) return 9;
+    if (dx * dx + dy * dy > this.C.beamLen * this.C.beamLen) return 9;
     return Math.abs(wrapA(Math.atan2(dy, dx) - L.ang));
   }
   hits(L) {
     if (L.dark > 0) return false;
     const c = this.g.creature;
-    const h = A51.beamHalf;
+    const h = this.C.beamHalf;
     if (this.beamDelta(L, c.x, c.y) < h) return true;
     // the rim counts too (it's a big craft), but only its inner part
     return this.beamDelta(L, c.x - 80, c.y) < h * 0.8 || this.beamDelta(L, c.x + 80, c.y) < h * 0.8;
@@ -829,7 +830,7 @@ export class Area51 {
           L.penHunt -= dt;
           centre = Math.atan2(this.penTarget.y - L.y, this.penTarget.x - L.x);
           if (centre > Math.PI / 2) centre -= Math.PI * 2; // down-left: go round through the sky side, never the ground
-          range = A51.penHuntRange;
+          range = this.C.penHuntRange;
         } else if (L.state === "search" && this.lastKnown && this.lastKnown.x) {
           centre = Math.atan2(this.lastKnown.y - L.y, this.lastKnown.x - L.x); // hunting around where it last had you
           range = 0.32;
@@ -847,7 +848,7 @@ export class Area51 {
           L.state = "brush";
           L.brushT = 0;
           L.outT = 0;
-          audio.preShock(feedingLow ? A51.brushWarnLow : A51.brushWarn, A51.brushWarn + 1.4);
+          audio.preShock(feedingLow ? this.C.brushWarnLow : this.C.brushWarn, this.C.brushWarn + 1.4);
           this.g.onEvent("a51-brush");
         }
       } else if (L.state === "brush") {
@@ -860,11 +861,11 @@ export class Area51 {
           L.brushT += dt;
           L.outT = 0;
         } else L.outT += dt;
-        const warn = feedingLow ? A51.brushWarnLow : A51.brushWarn;
-        if (L.outT > A51.brushLose || !out) {
+        const warn = feedingLow ? this.C.brushWarnLow : this.C.brushWarn;
+        if (L.outT > this.C.brushLose || !out) {
           // lost you: it swings on past and won't come back for a few seconds
           L.state = "sweep";
-          L.cool = A51.brushCool;
+          L.cool = this.C.brushCool;
           const u = clamp((L.ang - L.c) / L.r, -1, 1);
           L.phase = Math.cos(L.phase) >= 0 ? Math.asin(u) : Math.PI - Math.asin(u);
           this.g.onEvent("a51-lost");
@@ -872,7 +873,7 @@ export class Area51 {
       } else if (L.state === "lock") {
         const a = Math.atan2(c.y - L.y, c.x - L.x);
         const d = wrapA(a - L.ang);
-        L.ang += clamp(d, -A51.lockTrack * dt, A51.lockTrack * dt);
+        L.ang += clamp(d, -this.C.lockTrack * dt, this.C.lockTrack * dt);
         L.heat = damp(L.heat, 1, 6, dt);
         if (inBeam && !hidden) {
           L.outT = 0;
@@ -880,10 +881,10 @@ export class Area51 {
           if (this.lastKnown) (this.lastKnown.x = c.x), (this.lastKnown.y = c.y);
           else this.lastKnown = { x: c.x, y: c.y };
         } else L.outT += dt;
-        if (this.g.mode === "play" && (L.outT > A51.lockLose || this.hiddenT > A51.lockHiddenLose || !out)) {
+        if (this.g.mode === "play" && (L.outT > this.C.lockLose || this.hiddenT > this.C.lockHiddenLose || !out)) {
           L.state = "search";
           L.searchT = 5;
-          L.cool = A51.brushCool;
+          L.cool = this.C.brushCool;
           L.phase = 0;
         }
       }
@@ -893,12 +894,12 @@ export class Area51 {
       L.ang = clamp(L.ang, -Math.PI + 0.12 - 0.6 * L.dip, -0.12 + 0.6 * L.dip);
       if (L.state === "brush") {
         brushAny = true;
-        brushProg = Math.max(brushProg, clamp(L.brushT / (feedingLow ? A51.brushWarnLow : A51.brushWarn), 0, 1));
+        brushProg = Math.max(brushProg, clamp(L.brushT / (feedingLow ? this.C.brushWarnLow : this.C.brushWarn), 0, 1));
       }
       if (L.state === "lock") lockedAny = true;
       // the hum swells as a beam swings near (1-2 s of warning before it can even touch you)
       const dd = this.beamDelta(L, c.x, c.y);
-      if (dd < 9) near = Math.max(near, smoothstep(0.6, A51.beamHalf, dd) * (L.state === "sweep" && L.cool > 0 ? 0.5 : 1));
+      if (dd < 9) near = Math.max(near, smoothstep(0.6, this.C.beamHalf, dd) * (L.state === "sweep" && L.cool > 0 ? 0.5 : 1));
       // searchlight_pass when a beam sweeps over you (even through cloud: it's a warning)
       if (inBeam && !L.inBeam && L.passCool <= 0 && this.phase === "out" && playing) {
         L.passCool = 1.4;
@@ -931,8 +932,8 @@ export class Area51 {
       facing = Math.max(facing, smoothstep(0.15, 0.8, toward) * (L.state === "sweep" && L.cool > 0 ? 0.5 : 1));
     }
     this.penNear = facing;
-    if (feedingLow) this.penHeat += dt * (A51.penHeatBase + A51.penHeatFacing * facing) * (c.y > TUNE.dangerLowY ? 1 : 0.6);
-    else this.penHeat = Math.max(0, this.penHeat - dt * A51.penHeatDecay);
+    if (feedingLow) this.penHeat += dt * (this.C.penHeatBase + this.C.penHeatFacing * facing) * (c.y > TUNE.dangerLowY ? 1 : 0.6);
+    else this.penHeat = Math.max(0, this.penHeat - dt * this.C.penHeatDecay);
     if (feedingLow) this.penTarget = { x: c.x, y: c.y };
     if (this.penHeat >= 1 && feedingLow) {
       this.penHeat = 1;
@@ -944,7 +945,7 @@ export class Area51 {
           L.paused = 0;
           L.phase = -Math.PI / 2; // start the tight sweep from one side so it crosses you
         }
-        L.penHunt = A51.penHuntTime;
+        L.penHunt = this.C.penHuntTime;
         n++;
       }
       if (!this.penNoticed) {
@@ -978,26 +979,26 @@ export class Area51 {
       let w = 1;
       if (c.y > TUNE.dangerLowY) w *= 1.35;
       if (c.feedAmt > 0.3) w *= 1.3;
-      if (c.y < TUNE.dangerHighY - 20) w *= A51.highSoften;
+      if (c.y < TUNE.dangerHighY - 20) w *= this.C.highSoften;
       if (c.sinceBurst < 1 && c.vy < -100) w *= 0.4; // a burst out of the beam clearly helps
       this.exposure += dt * w;
     } else this.exposure = Math.max(0, this.exposure - dt * (hidden ? 0.9 : 0.45));
-    if (this.exposure > A51.failExposure * 0.65 && !this.failWarned) {
+    if (this.exposure > this.C.failExposure * 0.65 && !this.failWarned) {
       this.failWarned = true;
       audio.preShock(1.2, 4);
     }
-    if (this.exposure < A51.failExposure * 0.35) this.failWarned = false;
-    if (this.exposure >= A51.failExposure) return this.fail();
+    if (this.exposure < this.C.failExposure * 0.35) this.failWarned = false;
+    if (this.exposure >= this.C.failExposure) return this.fail();
     // win: past the fence after the first feed, hidden (or right out in the dark), with some Energy
-    const past = c.x > A51.exitX;
-    if (this.harvested && past && this.energy >= A51.energyMinExit && (hidden || c.x > A51.W - 300) && !this.lockedAny) this.winT += dt;
+    const past = c.x > this.C.exitX;
+    if (this.harvested && past && this.energy >= this.C.energyMinExit && (hidden || c.x > this.C.W - 300) && !this.lockedAny) this.winT += dt;
     else this.winT = Math.max(0, this.winT - dt * 2);
-    if (this.harvested && past && this.energy < A51.energyMinExit && !this.weakWarned) {
+    if (this.harvested && past && this.energy < this.C.energyMinExit && !this.weakWarned) {
       this.weakWarned = true;
       this.setHint();
       this.g.onEvent("a51-weak");
     }
-    if (this.winT >= A51.winHidden) return this.win();
+    if (this.winT >= this.C.winHidden) return this.win();
     // music: calm only when hidden and nothing is hunting; dread otherwise; chase while locked
     this.musicHold += dt;
     if (this.musicHold > 3) {
@@ -1041,11 +1042,11 @@ export class Area51 {
   // ---------------------------------------------------------------- people, cows, feeding
   updatePeople(dt, playing) {
     const c = this.g.creature;
-    const H = A51.hangar;
+    const H = this.C.hangar;
     for (const s of this.scientists) s.update(dt, H.x0 - 40, H.x1 + 200);
     for (const s of this.scientists) if (s.state === "idle" && this.phase === "held" && this.strain > 0.2) s.state = "look";
     const gd = this.guard;
-    gd.update(dt, 2400, A51.W);
+    gd.update(dt, 2400, this.C.W);
     if (playing && gd.state === "idle" && this.phase === "out") {
       const close = Math.abs(c.x - gd.x) < 560 && c.y > 300;
       this.guardT = close && (c.feedAmt > 0.3 || c.y > 380) ? this.guardT + dt : 0;
@@ -1072,7 +1073,7 @@ export class Area51 {
       so.cool = Math.max(0, so.cool - dt);
       const dx = c.x - so.x;
       const lit = this.lockedAny || this.brushAny;
-      const canSee = playing && this.phase === "out" && !hidden && Math.abs(dx) < A51.soldierSee && (c.y > A51.soldierLookY || lit || c.feedAmt > 0.3) && !this.empDark(so.x, GROUND - 60);
+      const canSee = playing && this.phase === "out" && !hidden && Math.abs(dx) < this.C.soldierSee && (c.y > this.C.soldierLookY || lit || c.feedAmt > 0.3) && !this.empDark(so.x, GROUND - 60);
       so.seeT = canSee ? so.seeT + dt : Math.max(0, so.seeT - dt * 0.7);
       if (so.seeT > 0.5) {
         if (so.state !== "look") {
@@ -1120,13 +1121,13 @@ export class Area51 {
       const on = onTarget && cw === cow;
       if (on) {
         if (cw.progress < 0.02) audio.fx("cow", { pan: this.panOf(cw.x), dist: this.distOf(cw.x) });
-        cw.progress = Math.min(1, cw.progress + (dt / A51.feedSeconds) * c.feedAmt * c.craft.feed);
+        cw.progress = Math.min(1, cw.progress + (dt / this.C.feedSeconds) * c.feedAmt * c.craft.feed);
         cw.x = damp(cw.x, m.x, 1.2, dt);
       } else cw.progress = Math.max(0, cw.progress - dt / 2.4);
       // v11 (Game King issue C): Energy only lands when the harvest completes, so a half-drawn animal never
       // makes you "able to leave". The bar shows the pending gain as a faint preview while you feed.
       if (cw.progress > cw.maxP) cw.maxP = cw.progress;
-      pending = Math.max(pending, cw.progress * A51.feedGain[Math.min(this.harvests, A51.feedGain.length - 1)]);
+      pending = Math.max(pending, cw.progress * this.C.feedGain[Math.min(this.harvests, this.C.feedGain.length - 1)]);
       const reach = Math.max(0, cw.baseY - (m.y + 34));
       if (on) {
         cw.lift = reach * smoothstep(0, 1, cw.progress);
@@ -1163,7 +1164,7 @@ export class Area51 {
     c.feeding = false;
     g.shake = 3;
     const first = this.harvests === 0;
-    this.energy = Math.min(1, this.energy + A51.feedGain[Math.min(this.harvests, A51.feedGain.length - 1)]);
+    this.energy = Math.min(1, this.energy + this.C.feedGain[Math.min(this.harvests, this.C.feedGain.length - 1)]);
     this.harvests++;
     if (first) {
       this.harvested = true;
@@ -1223,13 +1224,13 @@ export class Area51 {
     const c = g.creature;
     const VW = g.VW;
     let target;
-    if (!this.exited) target = (A51.hangar.x0 + A51.hangar.x1) * 0.5 + 120 - VW * 0.5;
+    if (!this.exited) target = (this.C.hangar.x0 + this.C.hangar.x1) * 0.5 + 120 - VW * 0.5;
     else {
       const fx = c.x + c.vx * 0.7 + VW * 0.08;
       this.frameX = damp(this.frameX == null ? fx : this.frameX, fx, 1.5, dt);
       target = this.frameX - VW * 0.5;
     }
-    target = clamp(target, 0, A51.W - VW);
+    target = clamp(target, 0, this.C.W - VW);
     this.camX = damp(this.camX, target, this.exited ? 2.2 : 3, dt);
   }
 
@@ -1249,7 +1250,7 @@ export class Area51 {
     if (play && out && this.alert > 0) {
       this.alarmNext -= dt;
       if (this.alarmNext <= 0) {
-        const hx = A51.hangar.x1;
+        const hx = this.C.hangar.x1;
         audio.fx("baseAlarm", { pan: this.panOf(hx), dist: Math.min(0.75, this.distOf(hx)), gain: this.lockedAny ? 0.95 : 0.7 });
         this.alarmNext = this.lockedAny ? 5.2 : this.alert >= 2 ? 6.5 + Math.random() * 2 : 9 + Math.random() * 4;
       }
@@ -1303,7 +1304,7 @@ export class Area51 {
       const d = this.beamDelta(L, x, y);
       if (d > 0.3) continue;
       const dist = Math.hypot(x - L.x, y - L.y);
-      k += smoothstep(A51.beamHalf * 2.6, A51.beamHalf * 0.3, d) * (1 - dist / A51.beamLen) * (0.75 + L.heat * 0.4);
+      k += smoothstep(this.C.beamHalf * 2.6, this.C.beamHalf * 0.3, d) * (1 - dist / this.C.beamLen) * (0.75 + L.heat * 0.4);
     }
     return k;
   }
@@ -1376,7 +1377,7 @@ export class Area51 {
       ctx.fillStyle = `rgba(120,10,6,${p})`;
       ctx.fillRect(0, 0, VW, VH);
     }
-    const ex = g.mode === "play" ? clamp(this.exposure / A51.failExposure, 0, 1) : g.mode === "fail" ? 1 : 0;
+    const ex = g.mode === "play" ? clamp(this.exposure / this.C.failExposure, 0, 1) : g.mode === "fail" ? 1 : 0;
     const e2 = Math.max(ex, this.brushAny ? 0.14 : 0);
     ctx.globalAlpha = 0.55 + e2 * 0.45;
     ctx.drawImage(g.vignette, -VW * e2 * 0.08, -VH * e2 * 0.08, VW * (1 + e2 * 0.16), VH * (1 + e2 * 0.16));
@@ -1453,8 +1454,8 @@ export class Area51 {
     const L = camX - 50;
     const R = camX + VW + 50;
     // apron / runway: darker tarmac, dashed centreline, blue edge lights
-    const r0 = A51.hangar.x0 - 40;
-    const r1 = A51.fence - 40;
+    const r0 = this.C.hangar.x0 - 40;
+    const r1 = this.C.fence - 40;
     const a0 = Math.max(L, r0);
     const a1 = Math.min(R, r1);
     if (a1 > a0) {
@@ -1476,8 +1477,8 @@ export class Area51 {
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(L, GROUND - 14);
-    ctx.lineTo(Math.min(R, A51.fence), GROUND - 14);
-    for (let x = Math.floor(L / 46) * 46; x < Math.min(R, A51.fence); x += 46) {
+    ctx.lineTo(Math.min(R, this.C.fence), GROUND - 14);
+    for (let x = Math.floor(L / 46) * 46; x < Math.min(R, this.C.fence); x += 46) {
       ctx.moveTo(x, GROUND + 2);
       ctx.lineTo(x, GROUND - 17);
     }
@@ -1485,7 +1486,7 @@ export class Area51 {
     ctx.fillStyle = "#070707";
     for (const b of this.scrub) {
       if (b.x < L || b.x > R) continue;
-      if (b.x > A51.hangar.x0 - 60 && b.x < A51.fence - 20 && b.y < 18) continue; // none on the tarmac
+      if (b.x > this.C.hangar.x0 - 60 && b.x < this.C.fence - 20 && b.y < 18) continue; // none on the tarmac
       ctx.beginPath();
       ctx.ellipse(b.x, GROUND + 12 + b.y, 9 * b.s, 5 * b.s, 0, Math.PI, TAU);
       ctx.fill();
@@ -1493,7 +1494,7 @@ export class Area51 {
   }
 
   drawHangarBack(ctx, t) {
-    const H = A51.hangar;
+    const H = this.C.hangar;
     const w = H.x1 - H.x0;
     const top = H.roof;
     const f = this.fluor;
@@ -1533,7 +1534,7 @@ export class Area51 {
     ctx.strokeStyle = `rgba(200,200,200,${0.08 + 0.12 * f})`;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.ellipse(A51.start.x, GROUND + 2, 170, 7, 0, 0, TAU);
+    ctx.ellipse(this.C.start.x, GROUND + 2, 170, 7, 0, 0, TAU);
     ctx.stroke();
     // crates, a lab bench with cold green screens, gas bottles
     ctx.fillStyle = "#0a0b0c";
@@ -1558,7 +1559,7 @@ export class Area51 {
     ctx.lineWidth = 2;
     ctx.beginPath();
     for (const k of [-110, -50, 50, 110]) {
-      const ax = A51.start.x + k * 1.3;
+      const ax = this.C.start.x + k * 1.3;
       if (snap <= 0) {
         ctx.moveTo(ax, top + 40);
         ctx.lineTo(c.x + k, c.y - 8 + (Math.abs(k) > 60 ? 4 : -10));
@@ -1598,7 +1599,7 @@ export class Area51 {
   }
 
   drawHangarFront(ctx, t) {
-    const H = A51.hangar;
+    const H = this.C.hangar;
     const a = this.facade;
     const mid = (H.x0 + H.x1) / 2;
     // roof: always solid (curved, corrugated)
@@ -1690,7 +1691,7 @@ export class Area51 {
       ctx.fillStyle = lit ? "rgba(240,200,120,0.32)" : "rgba(20,20,20,0.6)";
       for (let w = 0; w < 3; w++) ctx.fillRect(bx + 30 + w * 50, GROUND - 34, 16, 10);
     }
-    const tx = A51.tower.x;
+    const tx = this.C.tower.x;
     if (tx > L && tx < R) {
       // control tower
       ctx.fillStyle = "#0a0b0d";
@@ -1726,7 +1727,7 @@ export class Area51 {
       for (let k = 0; k < 5; k++) ctx.fillRect(tx + 214 + k * 34, GROUND - 34, 14, 8);
     }
     // jeeps by the hangar
-    const jx = A51.hangar.x1 + 120;
+    const jx = this.C.hangar.x1 + 120;
     if (jx > L && jx < R) {
       ctx.fillStyle = "#060708";
       for (const k of [0, 90]) {
@@ -1748,7 +1749,7 @@ export class Area51 {
     }
     // sodium lamp posts
     ctx.fillStyle = "#08090a";
-    for (let x = 1250; x < A51.fence; x += 420) {
+    for (let x = 1250; x < this.C.fence; x += 420) {
       if (x < L || x > R) continue;
       ctx.fillRect(x - 2, GROUND - 120, 4, 122);
       ctx.fillRect(x - 2, GROUND - 120, 22, 4);
@@ -1794,8 +1795,8 @@ export class Area51 {
       ctx.globalCompositeOperation = "source-over";
     }
     // the test-animal pen: rails, a lamp post, the guard hut
-    const p0 = A51.pen.x0;
-    const p1 = A51.pen.x1;
+    const p0 = this.C.pen.x0;
+    const p1 = this.C.pen.x1;
     if (p1 > L && p0 < R) {
       ctx.strokeStyle = "#0e0d0b";
       ctx.lineWidth = 3;
@@ -1812,14 +1813,14 @@ export class Area51 {
       ctx.fillStyle = "#08090a";
       ctx.fillRect(p1 + 30, GROUND - 150, 4, 152);
       ctx.fillRect(p1 + 12, GROUND - 150, 24, 5);
-      const hx = A51.guard.x + 70;
+      const hx = this.C.guard.x + 70;
       ctx.fillRect(hx, GROUND - 58, 52, 60);
       ctx.fillRect(hx - 6, GROUND - 64, 64, 7);
       ctx.fillStyle = "rgba(240,200,120,0.5)";
       ctx.fillRect(hx + 10, GROUND - 46, 30, 16);
     }
     // the perimeter fence (tall chain link, razor wire) and THE sign
-    const fx = A51.fence;
+    const fx = this.C.fence;
     if (fx > L - 200 && fx < R + 200) {
       ctx.strokeStyle = "rgba(60,62,64,0.9)";
       ctx.lineWidth = 2;
@@ -1863,7 +1864,7 @@ export class Area51 {
 
   /** v13 (Josh 5 Oct): the big AREA 51 sign on the apron, lit from below by two sodium lamps. */
   drawBigSign(ctx, t, L, R) {
-    const sx = A51.sign.x;
+    const sx = this.C.sign.x;
     if (sx < L - 260 || sx > R + 260) return;
     const top = GROUND - 150;
     const w = 300;
@@ -1899,8 +1900,8 @@ export class Area51 {
 
   drawBeams(ctx, t) {
     ctx.globalCompositeOperation = "lighter";
-    const len = A51.beamLen;
-    const h = A51.beamHalf;
+    const len = this.C.beamLen;
+    const h = this.C.beamHalf;
     const g0 = this.g;
     const vl = this.camX - len;
     const vr = this.camX + g0.VW + len;
@@ -1956,7 +1957,7 @@ export class Area51 {
     const L = camX - 200;
     const R = camX + VW + 200;
     ctx.globalCompositeOperation = "lighter";
-    for (let x = 1250; x < A51.fence; x += 420) {
+    for (let x = 1250; x < this.C.fence; x += 420) {
       if (x < L || x > R) continue;
       if (this.empDark(x, GROUND - 120)) continue; // v13 EMP
       ctx.globalAlpha = 0.85;
@@ -1964,14 +1965,14 @@ export class Area51 {
       ctx.globalAlpha = 0.28;
       ctx.drawImage(this.glowS, x - 132, GROUND - 60, 300, 120);
     }
-    const px = A51.pen.x1 + 24;
+    const px = this.C.pen.x1 + 24;
     if (px > L && px < R) {
       ctx.globalAlpha = 0.9;
       ctx.drawImage(this.glowS, px - 30, GROUND - 176, 60, 60);
       ctx.globalAlpha = 0.32;
       ctx.drawImage(this.glowS, px - 260, GROUND - 90, 400, 160);
     }
-    const tx = A51.tower.x;
+    const tx = this.C.tower.x;
     if (tx > L && tx < R) {
       ctx.globalAlpha = 0.35;
       ctx.drawImage(this.glowT, tx - 80, GROUND - 300, 160, 100);
@@ -1979,7 +1980,7 @@ export class Area51 {
       ctx.drawImage(this.glowR, tx - 10, GROUND - 312, 20, 20);
     }
     if (!this.exited) {
-      const H = A51.hangar;
+      const H = this.C.hangar;
       for (let x = H.x0 + 90; x < H.x1 - 40; x += 160) {
         ctx.globalAlpha = 0.45 * this.fluor;
         ctx.drawImage(this.glowW, x - 60, H.roof, 174, 110);

@@ -1,6 +1,6 @@
 // Night Harvest sound.
 /** Bump with the game cache version so phones refetch sharpened MP3s. */
-const AUDIO_VER = "16";
+const AUDIO_VER = "18";
 
 // Music and effects load by name from audio/<name>.mp3 and audio/sfx/<name>.mp3 when those files
 // exist. Until then every sound has a simple Web Audio placeholder (clearly temporary, not final).
@@ -19,7 +19,7 @@ const DUCK_FLOOR = 0.0316; // -30 dB pre-shock dip
 const SHOCK_COOLDOWN = 12; // seconds between shock stings ("Seen." is the only exception)
 // Memory (older iPhones/iPads): these files are folded to mono after decoding. They're beds or sounds the game
 // pans itself, so nothing audible is lost and their decoded size halves.
-const MONO = /^(farm_wind_heavy_loop|grass_rustle_loop|thunder_far_|farm_door_creak|base_ambience_loop|searchlight_hum_loop|truck_idle_loop|energy_warn_loop|base_alarm|truck_pass|storm_wind_loop|rain_soft_loop|storm_calm_hole|wind_loop|insects_loop|creature_breath_loop|hum_close_loop|creature_feed_loop|heartbeat_loop|car_engine_loop|footstep_|gasp_|door_|dog_|cow_|car_brakes|scream_distant|power_flicker|hide_rustle|crickets_stop)/;
+const MONO = /^(l\d+_|clip_after_|ending_|farm_wind_heavy_loop|grass_rustle_loop|thunder_far_|farm_door_creak|base_ambience_loop|searchlight_hum_loop|truck_idle_loop|energy_warn_loop|base_alarm|truck_pass|storm_wind_loop|rain_soft_loop|storm_calm_hole|wind_loop|insects_loop|creature_breath_loop|hum_close_loop|creature_feed_loop|heartbeat_loop|car_engine_loop|footstep_|gasp_|door_|dog_|cow_|car_brakes|scream_distant|power_flicker|hide_rustle|crickets_stop)/;
 // Decoded up front after the first tap: only what the first moments of the farm scene need (first variant of each).
 const UPFRONT = ["calm", "sfx/wind_loop", "sfx/insects_loop", "sfx/creature_breath_loop", "sfx/hum_close_loop", "sfx/creature_feed_loop",
   "hush", "sfx/hide_rustle", "sfx/creature_move_1", "sfx/cloud_burst", "sfx/footstep_dirt_1", "sfx/footstep_wood_1", "sfx/door_creak"];
@@ -88,10 +88,133 @@ export const SFX_FILES = {
   energyWarn: ["energy_warn_loop"],
   empBlast: ["emp_blast"], // EMP strike: electric thump + power-down whine (~1.5 s)
   empReady: ["emp_ready"], // EMP recharged: soft charge-up ping
+  // All-levels pass (ALL-LEVELS-SOUND.md): beds/music via audio.bed(name, 0..1, bus), the rest via audio.fx(name)
+  l4HighwayAmb: ["l4_highway_amb_loop"],
+  l5TownAmb: ["l5_town_amb_loop"],
+  l6RodeoAmb: ["l6_rodeo_amb_loop"],
+  l7SuburbAmb: ["l7_suburb_amb_loop"],
+  l8PowerAmb: ["l8_power_amb_loop"],
+  l9ConvoyAmb: ["l9_convoy_amb_loop"],
+  l10CoastAmb: ["l10_coast_amb_loop"],
+  l4HighwayMusic: ["l4_highway_music_loop"],
+  l5TownMusic: ["l5_town_music_loop"],
+  l6RodeoMusic: ["l6_rodeo_music_loop"],
+  l7SuburbMusic: ["l7_suburb_music_loop"],
+  l8PowerMusic: ["l8_power_music_loop"],
+  l9ConvoyMusic: ["l9_convoy_music_loop"],
+  l10CoastMusic: ["l10_coast_music_loop"],
+  l1StingSiren: ["l1_sting_siren"],
+  l1StingLockon: ["l1_sting_lockon"],
+  l2StingPorchLight: ["l2_sting_porch_light"],
+  l2StingDogLunge: ["l2_sting_dog_lunge"],
+  l3StingCoverTorn: ["l3_sting_cover_torn"],
+  l3StingFlash: ["l3_sting_flash"],
+  l4StingLightningReveal: ["l4_sting_lightning_reveal"],
+  l4StingTruckHorn: ["l4_sting_truck_horn"],
+  l5StingWindowsDark: ["l5_sting_windows_dark"],
+  l5StingDogsWake: ["l5_sting_dogs_wake"],
+  l6StingBaitTrap: ["l6_sting_bait_trap"],
+  l6StingFloodlights: ["l6_sting_floodlights"],
+  l7StingPhoneGlow: ["l7_sting_phone_glow"],
+  l7StingWindowFace: ["l7_sting_window_face"],
+  l8StingArcFlash: ["l8_sting_arc_flash"],
+  l8StingRadioScream: ["l8_sting_radio_scream"],
+  l9StingSpotted: ["l9_sting_spotted"],
+  l9StingConvoyTurns: ["l9_sting_convoy_turns"],
+  l10StingSirensShore: ["l10_sting_sirens_shore"],
+  l10StingHeliOver: ["l10_sting_heli_over"],
+  clipAfterL1: ["clip_after_l1"],
+  clipAfterL2: ["clip_after_l2"],
+  clipAfterL3: ["clip_after_l3"],
+  clipAfterL4: ["clip_after_l4"],
+  clipAfterL5: ["clip_after_l5"],
+  clipAfterL6: ["clip_after_l6"],
+  clipAfterL7: ["clip_after_l7"],
+  clipAfterL8: ["clip_after_l8"],
+  clipAfterL9: ["clip_after_l9"],
+  endingEscapeSpace: ["ending_escape_space"],
+  endingCaptureSlam: ["ending_capture_slam"],
   // shocks (each has a _soft version for the "softer shock sounds" setting)
   shockSpotted: ["sting_2"],
   shockFail: ["sting_3"],
   shockPorch: ["sting_1"],
+};
+
+export const LEVEL_SOUNDS = {
+ "1": [
+  "l1_sting_siren",
+  "l1_sting_lockon",
+  "clip_after_l1",
+  "base_ambience_loop",
+  "searchlight_hum_loop"
+ ],
+ "2": [
+  "l2_sting_porch_light",
+  "l2_sting_dog_lunge",
+  "clip_after_l2",
+  "farm_wind_heavy_loop",
+  "grass_rustle_loop",
+  "farm_door_creak",
+  "thunder_far_1"
+ ],
+ "3": [
+  "l3_sting_cover_torn",
+  "l3_sting_flash",
+  "clip_after_l3",
+  "storm_wind_loop",
+  "storm_gust",
+  "thunder_close"
+ ],
+ "4": [
+  "l4_highway_amb_loop",
+  "l4_highway_music_loop",
+  "l4_sting_lightning_reveal",
+  "l4_sting_truck_horn",
+  "clip_after_l4"
+ ],
+ "5": [
+  "l5_town_amb_loop",
+  "l5_town_music_loop",
+  "l5_sting_windows_dark",
+  "l5_sting_dogs_wake",
+  "clip_after_l5"
+ ],
+ "6": [
+  "l6_rodeo_amb_loop",
+  "l6_rodeo_music_loop",
+  "l6_sting_bait_trap",
+  "l6_sting_floodlights",
+  "clip_after_l6"
+ ],
+ "7": [
+  "l7_suburb_amb_loop",
+  "l7_suburb_music_loop",
+  "l7_sting_phone_glow",
+  "l7_sting_window_face",
+  "clip_after_l7"
+ ],
+ "8": [
+  "l8_power_amb_loop",
+  "l8_power_music_loop",
+  "l8_sting_arc_flash",
+  "l8_sting_radio_scream",
+  "clip_after_l8"
+ ],
+ "9": [
+  "l9_convoy_amb_loop",
+  "l9_convoy_music_loop",
+  "l9_sting_spotted",
+  "l9_sting_convoy_turns",
+  "clip_after_l9"
+ ],
+ "10": [
+  "l10_coast_amb_loop",
+  "l10_coast_music_loop",
+  "l10_sting_sirens_shore",
+  "l10_sting_heli_over",
+  "ending_escape_space",
+  "ending_capture_slam"
+ ]
 };
 
 function ctor() {
@@ -1420,6 +1543,10 @@ export class AudioDirector {
 
   // ---------------------------------------------------------------- Area 51 Escape
   /** Decode the level 1 pack (beds first) so the hangar has its air and the door is ready. */
+  /** All-levels pass: decode level n's pack in the background (call when the level starts or its clip begins). */
+  warmLevel(n) {
+    (LEVEL_SOUNDS[String(n)] || []).forEach((f) => this.warm(f));
+  }
   warmA51() {
     // v11 (Gamer Girl debug pass): trucks, the low-Energy pulse and the escape cue warm too, so their first play doesn't hitch
     ["base_ambience_loop", "hangar_door", "searchlight_hum_loop", "searchlight_pass", "base_alarm", "first_feed_sting", "capture_sting",
