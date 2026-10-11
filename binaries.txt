@@ -93,3 +93,11 @@ img/tree3.png 95492
 img/tree4.png 100959
 img/tree5.png 92085
 img/tree6.png 66423
+audio/sfx/emp_blast.mp3 31391
+audio/sfx/emp_ready.mp3 10493
+audio/sfx/farm_door_creak.mp3 33480
+audio/sfx/farm_wind_heavy_loop.mp3 401284
+audio/sfx/grass_rustle_loop.mp3 241415
+audio/sfx/thunder_far_1.mp3 101399
+audio/sfx/thunder_far_2.mp3 121252
+audio/sfx/thunder_far_3.mp3 91472
