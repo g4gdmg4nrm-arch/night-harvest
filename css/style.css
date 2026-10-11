@@ -122,3 +122,15 @@ select { -webkit-appearance: none; appearance: none; border-radius: 0; padding-r
 #empStat { position: absolute; left: max(16px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom)); font-size: 11px;
   letter-spacing: 0.18em; text-transform: uppercase; color: rgba(160, 200, 255, 0.6); pointer-events: none; }
 body.touch #empStat { display: none; }
+
+/* v19: ten level buttons on small phones (iPhone SE 375x667 portrait / 667x375 landscape) */
+#levels { overflow-y: auto; }
+@media (max-width: 420px) {
+  #levels button.lvl { grid-template-columns: 3.4em minmax(0, 1fr) 4.2em; width: min(92vw, 23em); padding: 6px 6px; min-height: 40px; }
+  #levels .levelList { gap: 2px; margin-bottom: 2vh; }
+}
+@media (max-height: 500px) {
+  #levels .levelList { display: grid; grid-template-columns: repeat(2, auto); grid-auto-flow: column; grid-template-rows: repeat(5, auto); column-gap: 18px; row-gap: 0; margin-bottom: 1.5vh; }
+  #levels button.lvl { grid-template-columns: 3.4em 12.5em 3.6em; padding: 4px 6px; min-height: 40px; font-size: 0.86em; letter-spacing: 0.18em; }
+  #levels h2 { margin: 0 0 6px; }
+}

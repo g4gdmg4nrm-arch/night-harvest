@@ -21,6 +21,15 @@
   "car_brakes",
   "car_engine_loop",
   "car_engine_pass",
+  "clip_after_l1",
+  "clip_after_l2",
+  "clip_after_l3",
+  "clip_after_l4",
+  "clip_after_l5",
+  "clip_after_l6",
+  "clip_after_l7",
+  "clip_after_l8",
+  "clip_after_l9",
   "cloud_burst",
   "cow_distress",
   "cow_low_1",
@@ -41,6 +50,8 @@
   "door_slam",
   "emp_blast",
   "emp_ready",
+  "ending_capture_slam",
+  "ending_escape_space",
   "energy_warn_loop",
   "escape_space",
   "farm_door_creak",
@@ -61,6 +72,40 @@
   "hide_rustle",
   "hum_close_loop",
   "insects_loop",
+  "l10_coast_amb_loop",
+  "l10_coast_music_loop",
+  "l10_sting_heli_over",
+  "l10_sting_sirens_shore",
+  "l1_sting_lockon",
+  "l1_sting_siren",
+  "l2_sting_dog_lunge",
+  "l2_sting_porch_light",
+  "l3_sting_cover_torn",
+  "l3_sting_flash",
+  "l4_highway_amb_loop",
+  "l4_highway_music_loop",
+  "l4_sting_lightning_reveal",
+  "l4_sting_truck_horn",
+  "l5_sting_dogs_wake",
+  "l5_sting_windows_dark",
+  "l5_town_amb_loop",
+  "l5_town_music_loop",
+  "l6_rodeo_amb_loop",
+  "l6_rodeo_music_loop",
+  "l6_sting_bait_trap",
+  "l6_sting_floodlights",
+  "l7_sting_phone_glow",
+  "l7_sting_window_face",
+  "l7_suburb_amb_loop",
+  "l7_suburb_music_loop",
+  "l8_power_amb_loop",
+  "l8_power_music_loop",
+  "l8_sting_arc_flash",
+  "l8_sting_radio_scream",
+  "l9_convoy_amb_loop",
+  "l9_convoy_music_loop",
+  "l9_sting_convoy_turns",
+  "l9_sting_spotted",
   "menu_open",
   "menu_piano",
   "menu_sting_1",
@@ -201,6 +246,90 @@
   "sfx/grass_rustle_loop": {
    "samples_44k1": 529200,
    "seconds": 12.0,
+   "mp3_encoder_delay_samples": 1105,
+   "note": "If decoded length > samples (WebKit/Safari keeps MP3 priming), loopStart=1105/44100 s, loopEnd=loopStart+seconds; if equal (Chromium strips it), loopStart=0."
+  },
+  "sfx/l4_highway_amb_loop": {
+   "samples_44k1": 1058400,
+   "seconds": 24.0,
+   "mp3_encoder_delay_samples": 1105,
+   "note": "If decoded length > samples (WebKit/Safari keeps MP3 priming), loopStart=1105/44100 s, loopEnd=loopStart+seconds; if equal (Chromium strips it), loopStart=0."
+  },
+  "sfx/l5_town_amb_loop": {
+   "samples_44k1": 1058400,
+   "seconds": 24.0,
+   "mp3_encoder_delay_samples": 1105,
+   "note": "If decoded length > samples (WebKit/Safari keeps MP3 priming), loopStart=1105/44100 s, loopEnd=loopStart+seconds; if equal (Chromium strips it), loopStart=0."
+  },
+  "sfx/l6_rodeo_amb_loop": {
+   "samples_44k1": 1058400,
+   "seconds": 24.0,
+   "mp3_encoder_delay_samples": 1105,
+   "note": "If decoded length > samples (WebKit/Safari keeps MP3 priming), loopStart=1105/44100 s, loopEnd=loopStart+seconds; if equal (Chromium strips it), loopStart=0."
+  },
+  "sfx/l7_suburb_amb_loop": {
+   "samples_44k1": 1058400,
+   "seconds": 24.0,
+   "mp3_encoder_delay_samples": 1105,
+   "note": "If decoded length > samples (WebKit/Safari keeps MP3 priming), loopStart=1105/44100 s, loopEnd=loopStart+seconds; if equal (Chromium strips it), loopStart=0."
+  },
+  "sfx/l8_power_amb_loop": {
+   "samples_44k1": 882000,
+   "seconds": 20.0,
+   "mp3_encoder_delay_samples": 1105,
+   "note": "If decoded length > samples (WebKit/Safari keeps MP3 priming), loopStart=1105/44100 s, loopEnd=loopStart+seconds; if equal (Chromium strips it), loopStart=0."
+  },
+  "sfx/l9_convoy_amb_loop": {
+   "samples_44k1": 1058400,
+   "seconds": 24.0,
+   "mp3_encoder_delay_samples": 1105,
+   "note": "If decoded length > samples (WebKit/Safari keeps MP3 priming), loopStart=1105/44100 s, loopEnd=loopStart+seconds; if equal (Chromium strips it), loopStart=0."
+  },
+  "sfx/l10_coast_amb_loop": {
+   "samples_44k1": 1058400,
+   "seconds": 24.0,
+   "mp3_encoder_delay_samples": 1105,
+   "note": "If decoded length > samples (WebKit/Safari keeps MP3 priming), loopStart=1105/44100 s, loopEnd=loopStart+seconds; if equal (Chromium strips it), loopStart=0."
+  },
+  "sfx/l4_highway_music_loop": {
+   "samples_44k1": 1176000,
+   "seconds": 26.666666666666668,
+   "mp3_encoder_delay_samples": 1105,
+   "note": "If decoded length > samples (WebKit/Safari keeps MP3 priming), loopStart=1105/44100 s, loopEnd=loopStart+seconds; if equal (Chromium strips it), loopStart=0."
+  },
+  "sfx/l5_town_music_loop": {
+   "samples_44k1": 1323000,
+   "seconds": 30.0,
+   "mp3_encoder_delay_samples": 1105,
+   "note": "If decoded length > samples (WebKit/Safari keeps MP3 priming), loopStart=1105/44100 s, loopEnd=loopStart+seconds; if equal (Chromium strips it), loopStart=0."
+  },
+  "sfx/l6_rodeo_music_loop": {
+   "samples_44k1": 1209600,
+   "seconds": 27.428571428571427,
+   "mp3_encoder_delay_samples": 1105,
+   "note": "If decoded length > samples (WebKit/Safari keeps MP3 priming), loopStart=1105/44100 s, loopEnd=loopStart+seconds; if equal (Chromium strips it), loopStart=0."
+  },
+  "sfx/l7_suburb_music_loop": {
+   "samples_44k1": 1411200,
+   "seconds": 32.0,
+   "mp3_encoder_delay_samples": 1105,
+   "note": "If decoded length > samples (WebKit/Safari keeps MP3 priming), loopStart=1105/44100 s, loopEnd=loopStart+seconds; if equal (Chromium strips it), loopStart=0."
+  },
+  "sfx/l8_power_music_loop": {
+   "samples_44k1": 1245176,
+   "seconds": 28.235283446712018,
+   "mp3_encoder_delay_samples": 1105,
+   "note": "If decoded length > samples (WebKit/Safari keeps MP3 priming), loopStart=1105/44100 s, loopEnd=loopStart+seconds; if equal (Chromium strips it), loopStart=0."
+  },
+  "sfx/l9_convoy_music_loop": {
+   "samples_44k1": 920348,
+   "seconds": 20.86956916099773,
+   "mp3_encoder_delay_samples": 1105,
+   "note": "If decoded length > samples (WebKit/Safari keeps MP3 priming), loopStart=1105/44100 s, loopEnd=loopStart+seconds; if equal (Chromium strips it), loopStart=0."
+  },
+  "sfx/l10_coast_music_loop": {
+   "samples_44k1": 1008000,
+   "seconds": 22.857142857142858,
    "mp3_encoder_delay_samples": 1105,
    "note": "If decoded length > samples (WebKit/Safari keeps MP3 priming), loopStart=1105/44100 s, loopEnd=loopStart+seconds; if equal (Chromium strips it), loopStart=0."
   }
