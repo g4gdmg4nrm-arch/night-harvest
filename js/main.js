@@ -1,10 +1,10 @@
 // Boot, settings, menus, the frame loop and automatic quality scaling.
-import { VH, LEVELS, LOCK_LEVELS } from "./config.js?v=19";
-import { loadImage, clamp } from "./util.js?v=19";
-import { Game } from "./game.js?v=19";
-import { Input } from "./input.js?v=19";
-import { audio } from "./audio.js?v=19";
-import { playInterlude } from "./interlude.js?v=19";
+import { VH, LEVELS, LOCK_LEVELS } from "./config.js?v=20";
+import { loadImage, clamp } from "./util.js?v=20";
+import { Game } from "./game.js?v=20";
+import { Input } from "./input.js?v=20";
+import { audio } from "./audio.js?v=20";
+import { playInterlude } from "./interlude.js?v=20";
 
 const $ = (id) => document.getElementById(id);
 const KEY = "nh-settings-v1";
@@ -276,12 +276,13 @@ async function boot() {
     show("settings", false);
     audio.setPaused(p);
   };
-  $("btnStart").onclick = () => start(1);
+  $("btnStart").onclick = () => { game.carryFrom = null; start(1); };
   $("btnAgain").onclick = () => start(level);
   $("btnNext").onclick = () => {
     if (!unlocked(level + 1)) return;
     const from = level;
     show("end", false);
+    game.carryFrom = from; // v20: level 10 reads level 9 Energy only on this path
     playInterlude(from, () => start(from + 1)); // v19: short scene between levels (tap skips)
   };
   $("btnLevels").onclick = () => {
@@ -293,7 +294,7 @@ async function boot() {
     show("levels", false);
     show("menu", true);
   };
-  for (const b of document.querySelectorAll("#levels .lvl")) b.onclick = () => unlocked(+b.dataset.level) && start(+b.dataset.level);
+  for (const b of document.querySelectorAll("#levels .lvl")) b.onclick = () => { game.carryFrom = null; unlocked(+b.dataset.level) && start(+b.dataset.level); };
   $("btnEndMenu").onclick = toMenu;
   $("btnMenu").onclick = toMenu;
   $("btnResume").onclick = () => setPaused(false);

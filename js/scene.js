@@ -1,8 +1,8 @@
 // Everything that is not an actor: sky, moon, distant cloud banks, hills, three layers of trees,
 // haze, the farm, the road, fog, the long field grass and the dark foreground grass.
-import { VH, WORLD_W, GROUND, HOUSE, MOON, roadY } from "./config.js?v=19";
-import { clamp, damp, fbm2, lerp, makeCanvas, noise1, noise2, rng, smoothstep, TAU } from "./util.js?v=19";
-import { cloudSprites } from "./clouds.js?v=19";
+import { VH, WORLD_W, GROUND, HOUSE, MOON, roadY } from "./config.js?v=20";
+import { clamp, damp, fbm2, lerp, makeCanvas, noise1, noise2, rng, smoothstep, TAU } from "./util.js?v=20";
+import { cloudSprites } from "./clouds.js?v=20";
 
 function tint(img, color) {
   const c = makeCanvas(img.width, img.height);
