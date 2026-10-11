@@ -4,10 +4,10 @@
 // over an awake street they see you: gasps and pointing for ~1.4 s (the warning; ~2.8 s if you're high), then the
 // nearest spotlight snaps on and locks. An awake street settles after ~18 s. Lesson: plan the order.
 // Same rules as Area 51: no combat; hide / feed / burst / EMP (an EMP over a street blinds its porches).
-import { VH, GROUND, TOWN, TOWN_CLOUDS } from "./config.js?v=19";
-import { lerp, rng, TAU } from "./util.js?v=19";
-import { Area51, Figure } from "./a51.js?v=19";
-import { audio } from "./audio.js?v=19";
+import { VH, GROUND, TOWN, TOWN_CLOUDS } from "./config.js?v=20";
+import { lerp, rng, TAU } from "./util.js?v=20";
+import { Area51, Figure } from "./a51.js?v=20";
+import { audio } from "./audio.js?v=20";
 
 const HIDE = 0.62;
 
@@ -50,7 +50,7 @@ export class Town extends Area51 {
       for (const p of S.people) p.reset(), (p.state = "gone");
     }
     audio.setMusic(null);
-    audio.warmLevel(5);
+    this.g.warmOnce(5);
     this.setHint();
   }
 
