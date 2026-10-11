@@ -5,11 +5,11 @@
 // Searchlight fairness (Game King / Gamer Girl): the ballast hum swells as a beam swings near you; a beam that
 // touches you HESITATES (everything goes quiet, ~1.5 s, about 1.2 s if you're low and feeding) before it can lock.
 // Leave the cone or reach thick cloud in that window and it loses you. Only a locked beam builds exposure.
-import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=19";
-import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=19";
-import { CloudField, cloudSprites } from "./clouds.js?v=19";
-import { Cow } from "./actors.js?v=19";
-import { audio } from "./audio.js?v=19";
+import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=20";
+import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=20";
+import { CloudField, cloudSprites } from "./clouds.js?v=20";
+import { Cow } from "./actors.js?v=20";
+import { audio } from "./audio.js?v=20";
 
 const HIDE = 0.62; // cloud density that hides you from a beam
 const wrapA = (a) => {
@@ -32,6 +32,8 @@ function glowSprite(r, g, b) {
 }
 
 /** People: scientists in the hangar (pale coats), the pen guard (dark, torch). Silhouettes that walk, look up, run. */
+// v20: levels 5-8 reuse Area51 but have no base: no hangar/base ambience under them (convoy + coast keep it)
+const NO_BASE_AMB = new Set(["town", "rodeo", "suburb", "power"]);
 export class Figure {
   constructor(x, kind, dir = 1) {
     this.x0 = x;
@@ -474,6 +476,7 @@ export class Area51 {
     this.applyBounds();
     clearTimeout(this.screamTimer);
     audio.stopAll();
+    if (this.C === A51) g.warmOnce(1); // v20: level 1 pack (mods warm their own level once in their reset)
     audio.warmA51();
     audio.setMusic(cp === 0 ? null : cp === 1 ? "calm" : "dread");
     this.musicHold = 0;
@@ -911,6 +914,7 @@ export class Area51 {
     if (this.brushAny && !brushAny && !lockedAny && audio.ducked && this.g.mode === "play") audio.releaseDuck(0.8);
     this.brushAny = brushAny;
     this.brushProg = brushProg; // 0..1 across the warning window: the hum ramp finishes exactly as the lock lands
+    if (lockedAny && !this.lockedAny && this.C === A51) audio.fx("l1StingLockon", { gain: 0.85 }); // v20: a beam locks
     this.lockedAny = lockedAny;
     this.lockHits = lockHits;
   }
@@ -1252,6 +1256,7 @@ export class Area51 {
       if (this.alarmNext <= 0) {
         const hx = this.C.hangar.x1;
         audio.fx("baseAlarm", { pan: this.panOf(hx), dist: Math.min(0.75, this.distOf(hx)), gain: this.lockedAny ? 0.95 : 0.7 });
+        if (this.C === A51) audio.fx("l1StingSiren", { pan: this.panOf(hx), gain: 0.8 }); // v20
         this.alarmNext = this.lockedAny ? 5.2 : this.alert >= 2 ? 6.5 + Math.random() * 2 : 9 + Math.random() * 4;
       }
     }
@@ -1284,7 +1289,7 @@ export class Area51 {
       storm: 0,
       howl: 0,
       a51: {
-        amb: g.mode === "win" ? 0 : out ? 0.55 * (1 - this.hum * 0.3) : 0.3,
+        amb: g.mode === "win" || NO_BASE_AMB.has(g.L.kind) ? 0 : out ? 0.55 * (1 - this.hum * 0.3) : 0.3,
         hum: g.mode === "fail" || g.mode === "win" ? 0 : this.hum * 0.9,
         humRate: 0.92 + this.near * 0.16 + bp * 0.12,
         truck: play ? truckG * 0.75 : 0,

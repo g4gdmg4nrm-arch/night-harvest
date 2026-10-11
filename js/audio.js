@@ -1,6 +1,6 @@
 // Night Harvest sound.
 /** Bump with the game cache version so phones refetch sharpened MP3s. */
-const AUDIO_VER = "18";
+const AUDIO_VER = "19";
 
 // Music and effects load by name from audio/<name>.mp3 and audio/sfx/<name>.mp3 when those files
 // exist. Until then every sound has a simple Web Audio placeholder (clearly temporary, not final).
@@ -315,7 +315,7 @@ async function discover() {
     /* no manifest */
   }
   if (man && man.loops) found.loops = man.loops;
-  const m = await scan("audio/");
+  const m = man ? null : await scan("audio/"); // v19 QA: the manifest is enough; the listing 404s on Pages
   if (m) {
     m.forEach((n) => MUSIC.includes(n) && found.music.add(n));
     const s = await scan("audio/sfx/");
@@ -1100,6 +1100,16 @@ export class AudioDirector {
         /* old WebKit */
       }
     }
+    // v19 QA: level-pack beds (l4HighwayAmb...) fade on every reset; only the running level drives its own back up
+    for (const [name, b] of Object.entries(this.beds || {})) {
+      if (!/^l\d+[A-Z]/.test(name) || !b.l) continue;
+      try {
+        b.l.g.gain.cancelScheduledValues(now);
+        b.l.g.gain.setTargetAtTime(0, now, tau);
+      } catch {
+        /* gone */
+      }
+    }
     for (const n of this.synthNodes || []) {
       try {
         n.gain.cancelScheduledValues(this.ctx.currentTime);
@@ -1545,7 +1555,36 @@ export class AudioDirector {
   /** Decode the level 1 pack (beds first) so the hangar has its air and the door is ready. */
   /** All-levels pass: decode level n's pack in the background (call when the level starts or its clip begins). */
   warmLevel(n) {
-    (LEVEL_SOUNDS[String(n)] || []).forEach((f) => this.warm(f));
+    // v19 QA: a level start also retires every other level's pack, so beds can't stack and old loops are freed
+    const keep = new Set(LEVEL_SOUNDS[String(n)] || []);
+    const others = new Set(Object.values(LEVEL_SOUNDS).flat().filter((f) => !keep.has(f) && /^(l\d+_|clip_after_|ending_)/.test(f)));
+    this.dropFiles(others);
+    keep.forEach((f) => this.warm(f));
+  }
+  /** Stop beds that play any of these files and forget their decoded buffers. */
+  dropFiles(files) {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    for (const [name, b] of Object.entries(this.beds || {})) {
+      const src = b.l && b.l.s.buffer && b.l.s.buffer.__src;
+      const f = src && src.replace(/^.*\//, "").replace(/\.(mp3|wav)$/, "");
+      if (!f || !files.has(f)) continue;
+      try {
+        b.l.g.gain.cancelScheduledValues(now);
+        b.l.g.gain.setTargetAtTime(0, now, 0.15);
+        b.l.s.stop(now + 1);
+      } catch {
+        /* already stopped */
+      }
+      delete this.beds[name];
+    }
+    for (const f of files) {
+      const p = `audio/sfx/${f}.mp3`;
+      if (!this.mem.has(p)) continue;
+      this.mem.delete(p);
+      this.buffers.delete(p);
+      this.used.delete(p);
+    }
   }
   warmA51() {
     // v11 (Gamer Girl debug pass): trucks, the low-Energy pulse and the escape cue warm too, so their first play doesn't hitch
