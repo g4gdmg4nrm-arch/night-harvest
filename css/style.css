@@ -1,0 +1,124 @@
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; overscroll-behavior: none; }
+body { font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif; color: #c4ccd3;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: none; }
+#wrap { position: fixed; inset: 0; }
+canvas#c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: #000; }
+.hidden { display: none !important; }
+
+.panel { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  pointer-events: none; }
+.panel > * { pointer-events: auto; }
+#menu { justify-content: flex-end; padding-bottom: max(7vh, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.25) 42%, transparent 70%); }
+#menu h1 { font-weight: 400; letter-spacing: 0.62em; font-size: clamp(22px, 4.6vh + 1vw, 48px); margin: 0 0 2.2vh 0.62em;
+  color: rgba(198, 204, 212, 0.78); text-shadow: 0 0 40px rgba(0,0,0,1), 0 2px 0 rgba(0,0,0,0.8);
+  font-stretch: condensed; }
+#menu .small { opacity: 0.55; letter-spacing: 0.28em; color: rgba(170,178,188,0.7); }
+#menu .buttons { gap: 28px; margin-top: 0.5vh; }
+/* No bordered boxes on the main menu — ghost text only */
+#menu button { font: inherit; color: rgba(190, 198, 208, 0.72); background: transparent; border: none;
+  padding: 10px 8px; min-width: 0; min-height: 44px; letter-spacing: 0.38em; text-transform: uppercase; font-size: 14px;
+  border-radius: 0; cursor: pointer; backdrop-filter: none; -webkit-backdrop-filter: none;
+  text-shadow: 0 0 18px rgba(0,0,0,0.9); transition: color 0.25s, letter-spacing 0.25s, opacity 0.25s; }
+#menu button:hover, #menu button:focus-visible { color: rgba(230, 234, 240, 0.95); letter-spacing: 0.42em;
+  text-shadow: 0 0 28px rgba(140,150,165,0.35), 0 0 8px rgba(0,0,0,1); outline: none; }
+#menu button:active, #menu button.down { color: rgba(255, 255, 255, 0.98); }
+
+h1 { font-weight: 400; letter-spacing: 0.55em; font-size: clamp(20px, 4.2vh + 1vw, 44px); margin: 0 0 3vh 0.55em;
+  color: rgba(205, 212, 220, 0.82); text-shadow: 0 0 24px rgba(0,0,0,0.9); }
+h2 { font-weight: 400; letter-spacing: 0.3em; font-size: clamp(16px, 3.4vh, 28px); margin: 0 0 2.5vh; color: rgba(205,212,220,0.85); }
+.small { font-size: 13px; letter-spacing: 0.2em; opacity: 0.72; margin: 2vh 0 0; text-transform: uppercase; }
+.buttons { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+button { font: inherit; color: #d0d7de; background: rgba(8, 10, 12, 0.4); border: none;
+  padding: 11px 26px; min-width: 128px; min-height: 44px; letter-spacing: 0.25em; text-transform: uppercase; font-size: 13px;
+  border-radius: 0; cursor: pointer; }
+button:active, button.down { background: rgba(60, 68, 76, 0.45); color: #fff; }
+#settings, #pause, #end { background: rgba(0, 0, 0, 0.62); }
+#settings button, #pause button, #end button { background: transparent; border: none;
+  letter-spacing: 0.3em; color: rgba(200,208,216,0.8); text-shadow: 0 0 16px rgba(0,0,0,0.8); }
+#settings button:hover, #pause button:hover, #end button:hover,
+#settings button:focus-visible, #pause button:focus-visible, #end button:focus-visible {
+  color: #eef2f6; outline: none; }
+.rows { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 34px; margin-bottom: 3vh; font-size: 13px; letter-spacing: 0.12em; }
+.rows label { display: flex; align-items: center; justify-content: space-between; gap: 14px; text-transform: uppercase; }
+.rows label.check { justify-content: flex-start; }
+input[type=range] { width: 150px; accent-color: #8c98a4; }
+select { font: inherit; background: #0b0d0f; color: #d0d7de; border: 1px solid rgba(190,200,210,0.2); padding: 4px 8px; }
+
+#hud { position: absolute; inset: 0; pointer-events: none; }
+#btnPause { position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right));
+  pointer-events: auto; min-width: 0; width: 44px; height: 44px; padding: 0; display: flex; gap: 6px; align-items: center;
+  justify-content: center; opacity: 0.4; background: transparent; border: none; }
+#btnPause span { width: 3px; height: 14px; background: #c8d0d8; display: block; }
+#touch { position: absolute; inset: 0; display: none; }
+body.touch #touch { display: block; }
+#stickZone { position: absolute; left: 0; top: 0; bottom: 0; width: 48%; pointer-events: auto; touch-action: none; }
+#stickBase, #stickKnob { position: absolute; left: 0; top: 0; border-radius: 50%; pointer-events: none; opacity: 0; transition: opacity 0.15s; }
+#stickBase { width: 112px; height: 112px; border: 1px solid rgba(200, 210, 220, 0.14); background: rgba(10, 12, 14, 0.18); }
+#stickKnob { width: 48px; height: 48px; background: rgba(200, 210, 220, 0.14); border: 1px solid rgba(200,210,220,0.2); }
+#btnFeed, #btnBurst, #btnEmp { position: absolute; pointer-events: auto; touch-action: none; border-radius: 50%; padding: 0; min-width: 0;
+  letter-spacing: 0.15em; font-size: 11px; color: rgba(210, 218, 226, 0.55); background: rgba(10, 12, 14, 0.16);
+  border: 1px solid rgba(200, 210, 220, 0.12); }
+#btnFeed { width: 84px; height: 84px; right: max(22px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); }
+#btnBurst { width: 60px; height: 60px; right: calc(max(22px, env(safe-area-inset-right)) + 100px); bottom: max(14px, env(safe-area-inset-bottom)); }
+#btnFeed.down { background: rgba(170, 180, 190, 0.2); }
+#hint { position: absolute; left: 50%; transform: translateX(-50%); top: max(14px, env(safe-area-inset-top)); font-size: 13px;
+  letter-spacing: 0.18em; text-transform: uppercase; color: rgba(210, 218, 226, 0.75); max-width: calc(100% - 140px);
+  text-align: center; pointer-events: none; transition: opacity 1.5s; white-space: nowrap; }
+#seen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: clamp(22px, 5vh, 40px);
+  letter-spacing: 0.5em; color: rgba(210, 216, 222, 0.8); pointer-events: none; }
+#rotate { position: absolute; inset: 0; background: #000; display: flex; align-items: center; justify-content: center;
+  letter-spacing: 0.3em; text-transform: uppercase; font-size: 13px; z-index: 10; }
+@media (max-height: 430px) { .rows { gap: 6px 28px; } .rows label { font-size: 11px; } button { padding: 8px 20px; min-height: 40px; } }
+
+#calib { display: flex; align-items: center; gap: 12px; font-size: 12px; opacity: 0.85; margin: 4px 0 0; grid-column: 1 / -1; }
+#calibBox { width: 64px; height: 40px; background: #000; display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(200,210,220,0.12); }
+#calibSym { width: 18px; height: 18px; border-radius: 50%; background: rgb(14, 15, 18); box-shadow: 0 0 0 3px rgb(7,8,9); }
+
+/* Level select: ghost text rows, no boxes (same feel as the main menu) */
+#levels { background: radial-gradient(ellipse at 50% 60%, rgba(0,0,0,0.55), rgba(0,0,0,0.82)); }
+#levels .levelList { display: flex; flex-direction: column; gap: 4px; margin-bottom: 3vh; }
+#levels button { font: inherit; background: transparent; border: none; color: rgba(196,204,214,0.78);
+  letter-spacing: 0.32em; text-transform: uppercase; font-size: 14px; text-shadow: 0 0 18px rgba(0,0,0,0.9); cursor: pointer; }
+#levels button.lvl { display: grid; grid-template-columns: 3.2em 14em 6em; align-items: baseline; text-align: left; padding: 10px 8px; min-height: 44px; }
+#levels .num { opacity: 0.45; }
+#levels .tag { font-size: 10px; letter-spacing: 0.3em; opacity: 0.55; text-align: right; }
+#levels button:hover, #levels button:focus-visible { color: #eef2f6; outline: none; }
+#levels button.locked { opacity: 0.32; pointer-events: none; }
+
+/* Level 1 (Area 51): Energy bar, top left; the hint drops below it */
+#energy { position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(18px, env(safe-area-inset-left));
+  width: clamp(150px, 22vw, 220px); pointer-events: none; transition: opacity 0.6s; }
+#energy .elabel { font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase; color: rgba(214,222,230,0.8);
+  margin-bottom: 6px; text-shadow: 0 0 10px rgba(0,0,0,0.9); }
+#epct { letter-spacing: 0.08em; opacity: 0.75; margin-left: 4px; }
+#energy .ebar { position: relative; height: 9px; background: rgba(8,10,12,0.55); border: 1px solid rgba(210,220,230,0.32);
+  box-shadow: 0 0 12px rgba(0,0,0,0.7); }
+#efill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #7f93a8, #dfe9f2);
+  box-shadow: 0 0 10px rgba(190,215,240,0.55); }
+#energy .emin { position: absolute; left: 15%; top: -4px; bottom: -4px; width: 2px; background: rgba(240,244,248,0.55); }
+#energy.low #efill { background: linear-gradient(90deg, #8a2a22, #e0624f); box-shadow: 0 0 12px rgba(230,80,60,0.7);
+  animation: elow 0.9s ease-in-out infinite; }
+#energy.low .elabel { color: rgba(240,140,120,0.95); }
+#energy.gain #efill { box-shadow: 0 0 18px rgba(230,245,255,1); }
+@keyframes elow { 50% { opacity: 0.45; } }
+#hud.a51 #hint { top: calc(max(14px, env(safe-area-inset-top)) + 38px); }
+#levels .lvl.locked .nm { opacity: 0.4; }
+#epend { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: rgba(220,236,250,0.22);
+  border-right: 1px solid rgba(230,242,255,0.45); }
+/* v11 debug pass: long hints wrapped off small phones (iPhone SE / mini) and under the notch. Let them wrap, balanced. */
+#hint { white-space: normal; text-wrap: balance; line-height: 1.5;
+  max-width: calc(100% - 2 * max(70px, env(safe-area-inset-left), env(safe-area-inset-right))); }
+@media (max-width: 900px) { #hint { font-size: 11px; letter-spacing: 0.12em; } }
+#hud.a51 #hint { max-width: calc(100% - 2 * max(70px, env(safe-area-inset-left), env(safe-area-inset-right))); }
+select { -webkit-appearance: none; appearance: none; border-radius: 0; padding-right: 18px; }
+
+/* v13 EMP button (touch) and recharge readout (keyboard) */
+#btnEmp { width: 52px; height: 52px; right: calc(max(22px, env(safe-area-inset-right)) + 104px); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 74px); font-size: 10px; letter-spacing: 0.08em; }
+#btnEmp.cool { opacity: 0.45; }
+#empStat { position: absolute; left: max(16px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom)); font-size: 11px;
+  letter-spacing: 0.18em; text-transform: uppercase; color: rgba(160, 200, 255, 0.6); pointer-events: none; }
+body.touch #empStat { display: none; }
