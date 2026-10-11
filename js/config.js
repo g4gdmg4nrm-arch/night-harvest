@@ -54,7 +54,15 @@ export const TUNE = {
 export const LEVELS = [
   { id: 1, name: "Area 51 Escape", kind: "a51" },
   { id: 2, name: "Quiet Farm", kind: "farm", storm: false },
-  { id: 3, name: "Storm Farm", kind: "farm", storm: true, wip: true },
+  { id: 3, name: "Storm Farm", kind: "farm", storm: true, wip: false },
+  // v18 level 4: the farm engine with rest-stop dressing, lightning every 6.5-9.5 s and an army truck patrol (js/highway.js)
+  { id: 4, name: "Highway Rest Stop", kind: "farm", storm: false, highway: true },
+  { id: 5, name: "Small Town", kind: "town" },
+  { id: 6, name: "Rodeo Fairground", kind: "rodeo" },
+  { id: 7, name: "Suburb Backyards", kind: "suburb" },
+  { id: 8, name: "Power Station", kind: "power" },
+  { id: 9, name: "Army Convoy", kind: "convoy" },
+  { id: 10, name: "Coast at Dawn", kind: "coast" },
 ];
 export const levelById = (id) => LEVELS.find((L) => L.id === id) || LEVELS[0];
 // Progress lock: Area 51 and Quiet Farm are always open; later levels open when the one before is beaten.
@@ -176,3 +184,308 @@ export const CRAFTS = {
   stalker: { name: "Stalker", speed: 1, accel: 1, burst: 1, burstCool: 1, feed: 1, vis: 0 },
   raider: { name: "Raider", speed: 1.5, accel: 1.6, burst: 1.2, burstCool: 0.6, feed: 1.25, vis: 0.12 },
 };
+
+// ------------------------------------------------------------------ Level 5: Small Town (Game King sandbox)
+// Two streets facing each other across the square. Feeding on one street WAKES THE OTHER: its windows all go
+// dark together (listening, l5StingWindowsDark), then blaze on, dogs bark (l5StingDogsWake) and people come out
+// and look up. Over an awake street, out of thick cloud and low (or feeding), they see you: gasps + pointing for
+// ~1.4 s (the warning), then the nearest spotlight snaps on and locks. An awake street settles after ~18 s.
+// Plan the order: feed on the far street first, or feed near and wait out the far street.
+export const TOWN = {
+  ...A51,
+  W: 5000,
+  hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 }, // no hangar
+  start: { x: 320, y: 170 },
+  checkpoint0: { x: 320, y: 170 },
+  checkpoint1: { x: 1600, y: 180 },
+  streets: [
+    { name: "Elm St", x0: 1100, x1: 2100, cow: 1600, cloud: { x: 1600, y: 180 } },
+    { name: "Main St", x0: 2800, x1: 3800, cow: 3300, cloud: { x: 3300, y: 180 } },
+  ],
+  pen: { x0: 1500, x1: 1700 }, // pen heat for Elm St's backyard
+  cows: [1600, 3300],
+  guard: { x: -5000 },
+  soldiers: [],
+  sign: { x: -5000 },
+  tower: { x: -5000 },
+  towers: [
+    { x: 1250, y: 372, c: -1.5, r: 0.8, sp: 0.36, ph: 0.4 }, // Elm St water tower
+    { x: 2450, y: 330, c: -1.6, r: 0.85, sp: 0.4, ph: 2.6 }, // church steeple on the square
+    { x: 3650, y: 372, c: -1.6, r: 0.8, sp: 0.38, ph: 4.2 }, // Main St water tower
+  ],
+  fence: 4200,
+  exitX: 4300,
+  truckStops: [-900, -900],
+  energyStart: 0.12,
+  energyMinExit: 0.15,
+  feedGain: [0.45, 0.3],
+  failExposure: 2.2,
+  wakeRate: 0.7, // per second of feeding on the other street (full wake ~1.5 s of feeding)
+  wakeHold: 18, // seconds an awake street stays up
+  wakeFade: 5,
+  watchY: 230, // over an awake street, below this (lower on screen) you're seen ...
+  watchWarn: 1.4, // ... this long (gasps + pointing) before a spotlight locks
+};
+export const TOWN_CLOUDS = [
+  { x: 320, y: 165, w: 600, h: 190, seed: 315, kind: "cumulus", drift: 45 },
+  { x: 1600, y: 180, w: 560, h: 190, seed: 323, kind: "cumulus", drift: 35 }, // over Elm St's backyard
+  { x: 2450, y: 120, w: 700, h: 150, seed: 351, kind: "cumulus", drift: 50 }, // high over the square (waiting cloud)
+  { x: 1000, y: 100, w: 700, h: 110, seed: 357, kind: "flat", drift: 70 },
+  { x: 3300, y: 180, w: 560, h: 190, seed: 333, kind: "cumulus", drift: 35 }, // over Main St's backyard
+  { x: 4000, y: 150, w: 520, h: 170, seed: 367, kind: "cumulus", drift: 50 },
+  { x: 4800, y: 168, w: 760, h: 230, seed: 341, kind: "cumulus", count: 52, drift: 40 }, // the dark fields
+];
+
+// ------------------------------------------------------------------ Level 6: Rodeo Fairground (Game King sandbox)
+// Fairground under bright bulbs in fog. Left -> right: car park, midway (ferris wheel, tents, bulb strings),
+// the BAIT (a cow alone in a soft warm cone: too bright, too still), the rodeo arena (the real feed, under
+// sweeping floodlights), the stock yards, the dark fields. Scout the bait (hover near it, high) and it shows as a
+// decoy. Drop on it and the trap springs: relay clack + bulbs stutter (1.3 s warning), then the floodlights snap on.
+export const RODEO = {
+  ...A51,
+  W: 5200,
+  hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 }, // no hangar
+  start: { x: 320, y: 170 },
+  checkpoint0: { x: 320, y: 170 },
+  checkpoint1: { x: 3250, y: 185 }, // staging cloud beside the arena
+  pen: { x0: 3270, x1: 3540 }, // rodeo arena
+  cows: [3330, 3470],
+  guard: { x: 3720 },
+  bait: { x: 2150 },
+  baitScoutR: 300, // hover within this (horizontally) ...
+  baitScoutY: 300, // ... above this line (higher on screen) ...
+  baitScoutT: 1.5, // ... this long to see it's a decoy
+  baitTrigR: 110, // low over it (or feeding on it) springs the trap
+  baitTrigY: 300,
+  baitWarn: 1.3, // relay clack + bulbs stutter, then the floodlights snap on
+  baitFloodR: 1100, // towers this close swing straight onto the bait
+  soldiers: [{ x: 1300, dir: 1 }, { x: 2600, dir: -1 }, { x: 3900, dir: 1 }, { x: 4300, dir: -1 }],
+  soldierSee: 460,
+  sign: { x: -5000 },
+  tower: { x: -5000 },
+  towers: [
+    { x: 1500, y: 372, c: -1.6, r: 0.8, sp: 0.38, ph: 0.4 },
+    { x: 2700, y: 366, c: -1.5, r: 0.8, sp: 0.4, ph: 2.6 },
+    { x: 2950, y: 360, c: -1.8, r: 0.8, sp: 0.42, ph: 3.9 },
+    { x: 3950, y: 362, c: -1.35, r: 0.82, sp: 0.44, ph: 5.0 },
+    { x: 4400, y: 372, c: -1.6, r: 0.8, sp: 0.46, ph: 1.2 },
+  ],
+  fence: 4600,
+  exitX: 4700,
+  truckStops: [4100, 4500],
+  energyStart: 0.12,
+  energyMinExit: 0.15,
+  feedGain: [0.42, 0.28],
+  failExposure: 2.0,
+};
+export const RODEO_CLOUDS = [
+  { x: 320, y: 165, w: 600, h: 190, seed: 215, kind: "cumulus", drift: 45 },
+  { x: 1150, y: 150, w: 560, h: 170, seed: 233, kind: "cumulus", drift: 55 },
+  { x: 2050, y: 115, w: 620, h: 140, seed: 251, kind: "cumulus", drift: 45 }, // over the bait (scouting perch)
+  { x: 1700, y: 100, w: 700, h: 110, seed: 257, kind: "flat", drift: 70 },
+  { x: 3250, y: 185, w: 560, h: 190, seed: 223, kind: "cumulus", drift: 40 }, // staging over the arena
+  { x: 3550, y: 262, w: 360, h: 90, seed: 291, kind: "flat", drift: 40 },
+  { x: 4150, y: 160, w: 560, h: 170, seed: 267, kind: "cumulus", drift: 50 },
+  { x: 5000, y: 168, w: 760, h: 230, seed: 241, kind: "cumulus", count: 52, drift: 40 }, // dark fields
+];
+
+// ------------------------------------------------------------------ Level 7: Suburb Backyards (Game King sandbox)
+// A row of dark houses and backyards. The houses LOOK asleep, but bedroom windows hide phones. A phone screen
+// glows on (l7StingPhoneGlow) and tips up toward the sky for ~1.4 s (the warning), then films: a pale cone of
+// view straight up. Inside that cone and out of thick cloud, exposure builds and you're caught in ~2 s.
+// Phones also wake when you feed nearby (the cow's noise), ~1.6 s into the feed. After filming, a phone is
+// dead for a while. Lesson: dark houses aren't safe; watch the windows, feed when the near phones are spent.
+export const SUBURB = {
+  ...A51,
+  W: 5000,
+  hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 },
+  start: { x: 320, y: 170 },
+  checkpoint0: { x: 320, y: 170 },
+  checkpoint1: { x: 1500, y: 180 },
+  pen: { x0: -4000, x1: -3900 }, // no searchlight pen heat here
+  cows: [1500, 3400],
+  yards: [1500, 3400],
+  guard: { x: -5000 },
+  soldiers: [],
+  sign: { x: -5000 },
+  tower: { x: -5000 },
+  towers: [{ x: -4000, y: 372, c: -1.6, r: 0.5, sp: 0.3, ph: 0 }], // no searchlights on this street
+  fence: 4300,
+  exitX: 4400,
+  truckStops: [-900, -900],
+  energyStart: 0.12,
+  energyMinExit: 0.15,
+  feedGain: [0.45, 0.3],
+  failExposure: 2.2,
+  // phones: x of each bedroom window; first wake after `first` s, then every gapMin..gapMax
+  phones: [
+    { x: 900, first: 9 }, { x: 1350, first: 30 }, { x: 1650, first: 50 }, { x: 2300, first: 16 },
+    { x: 2800, first: 24 }, { x: 3250, first: 40 }, { x: 3600, first: 60 }, { x: 4050, first: 20 },
+  ],
+  phoneGapMin: 14,
+  phoneGapMax: 22,
+  phoneWarn: 1.4, // screen glows + tips up: the warning
+  phoneFilm: 4.0,
+  phoneDead: 12, // after filming, spent this long
+  phoneCone: 0.6, // half-angle (radians) of the view cone, pointing straight up (+120 px at the window)
+  phoneFeedWake: 1.6, // feeding within phoneFeedR this long wakes the nearest live phone
+  phoneFeedR: 420,
+};
+export const SUBURB_CLOUDS = [
+  { x: 320, y: 165, w: 600, h: 190, seed: 415, kind: "cumulus", drift: 45 },
+  { x: 1500, y: 180, w: 560, h: 190, seed: 423, kind: "cumulus", drift: 35 }, // over yard 1
+  { x: 2450, y: 130, w: 640, h: 160, seed: 451, kind: "cumulus", drift: 45 }, // mid-street hide
+  { x: 1000, y: 100, w: 700, h: 110, seed: 457, kind: "flat", drift: 70 },
+  { x: 3400, y: 180, w: 560, h: 190, seed: 433, kind: "cumulus", drift: 35 }, // over yard 2
+  { x: 4000, y: 150, w: 520, h: 170, seed: 467, kind: "cumulus", drift: 50 },
+  { x: 4800, y: 168, w: 760, h: 230, seed: 441, kind: "cumulus", count: 52, drift: 40 },
+];
+
+// ------------------------------------------------------------------ Level 8: Power Station (Game King sandbox)
+// Chain-link, transformers, yard lights. Your presence costs: within `interR` of a yard lamp the radios crackle
+// (l8StingRadioScream) and the lamp stutters for `interWarn` s (the warning); stay and the lamp locks to full
+// flood and the yard crew look up (alerted for `alertHold` s). Inside an alerted lamp's lit pool, out of thick
+// cloud, you're caught in ~2 s. Brushing a transformer arcs (l8StingArcFlash) and alerts every lamp near it.
+// Lesson: pick the dark path (high, through cloud, between the lamps).
+export const POWER = {
+  ...A51,
+  W: 5800,
+  hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 },
+  start: { x: 320, y: 170 },
+  checkpoint0: { x: 320, y: 170 },
+  checkpoint1: { x: 1300, y: 180 },
+  pen: { x0: -4000, x1: -3900 },
+  cows: [1300, 3300],
+  guard: { x: -5000 },
+  soldiers: [],
+  sign: { x: -5000 },
+  tower: { x: -5000 },
+  towers: [{ x: -4000, y: 372, c: -1.6, r: 0.5, sp: 0.3, ph: 0 }],
+  yard: { x0: 1700, x1: 4150 },
+  lamps: [1850, 2250, 2650, 3000, 3600, 3950],
+  transformers: [2050, 2450, 2820, 3780],
+  lampH: 130, // lamp head above the ground
+  interR: 280, // presence radius around a lamp head
+  interWarn: 1.3, // crackle + stutter before it locks to full flood
+  alertHold: 7,
+  poolR: 220, // lit pool half-width ...
+  poolY: 230, // ... and it reaches up to this height (y below this line is lit)
+  arcR: 120, // this close to a transformer = arc flash
+  fence: 4900,
+  exitX: 5000,
+  truckStops: [-900, -900],
+  energyStart: 0.12,
+  energyMinExit: 0.15,
+  feedGain: [0.45, 0.3],
+  failExposure: 2.2,
+};
+export const POWER_CLOUDS = [
+  { x: 320, y: 165, w: 600, h: 190, seed: 515, kind: "cumulus", drift: 45 },
+  { x: 1300, y: 180, w: 560, h: 190, seed: 523, kind: "cumulus", drift: 35 }, // over the outer field
+  { x: 2300, y: 110, w: 700, h: 130, seed: 551, kind: "cumulus", drift: 45 }, // high over the yard
+  { x: 3300, y: 180, w: 520, h: 180, seed: 533, kind: "cumulus", drift: 35 }, // the dark gap between lamps
+  { x: 4500, y: 150, w: 600, h: 170, seed: 567, kind: "cumulus", drift: 50 },
+  { x: 5500, y: 168, w: 760, h: 230, seed: 541, kind: "cumulus", count: 52, drift: 40 },
+];
+
+// ------------------------------------------------------------------ Level 9: Army Convoy (Game King sandbox)
+// A ridge road. A convoy of trucks with roof searchlights patrols it; more trucks are parked with their lights
+// sweeping; soldiers look up and point (no combat) and pointing makes the convoy TURN and hunt toward you
+// (l9StingConvoyTurns). Three paddocks below the ridge. You need Energy >= exitEnergy to leave: bank 2 feeds.
+export const CONVOY = {
+  ...A51,
+  W: 6000,
+  hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 },
+  start: { x: 320, y: 170 },
+  checkpoint0: { x: 320, y: 170 },
+  checkpoint1: { x: 1500, y: 180 },
+  pen: { x0: 1350, x1: 1650 }, // moved to the nearest paddock every frame
+  cows: [1500, 3000, 4500],
+  guard: { x: -5000 },
+  soldiers: [{ x: 1150, dir: 1 }, { x: 1950, dir: -1 }, { x: 2600, dir: 1 }, { x: 3450, dir: -1 }, { x: 3900, dir: 1 }, { x: 4900, dir: -1 }, { x: 5300, dir: 1 }],
+  soldierSee: 480,
+  sign: { x: -5000 },
+  tower: { x: -5000 },
+  towers: [ // parked trucks with roof lights (low mounts)
+    { x: 1100, y: 470, c: -1.57, r: 1.2, sp: 0.3, ph: 0.4 },
+    { x: 2250, y: 470, c: -1.57, r: 1.2, sp: 0.3, ph: 2.6 },
+    { x: 3550, y: 470, c: -1.57, r: 1.2, sp: 0.32, ph: 4.0 },
+    { x: 5050, y: 470, c: -1.57, r: 1.2, sp: 0.34, ph: 1.3 },
+  ],
+  patrols: [[700, 2400], [2400, 4000], [3800, 5500]], // moving trucks shuttle along these stretches
+  patrolSpeed: 110,
+  huntSpeed: 200,
+  fence: 5600,
+  exitX: 5700,
+  truckStops: [0, 0],
+  energyStart: 0.12,
+  energyMinExit: 0.6, // bank two feeds for the finale
+  feedGain: [0.32, 0.3, 0.28],
+  failExposure: 2.0, // the army hunts hard: once locked you have less time (A51 2.8)
+  penHeatBase: 0.35, // paddocks are watched (A51 0.3)
+  penHeatFacing: 1.0,
+};
+export const CONVOY_CLOUDS = [
+  { x: 320, y: 165, w: 600, h: 190, seed: 615, kind: "cumulus", drift: 45 },
+  { x: 1500, y: 180, w: 560, h: 190, seed: 623, kind: "cumulus", drift: 35 },
+  { x: 2250, y: 110, w: 700, h: 130, seed: 651, kind: "cumulus", drift: 45 },
+  { x: 3000, y: 180, w: 560, h: 190, seed: 633, kind: "cumulus", drift: 35 },
+  { x: 3750, y: 120, w: 640, h: 140, seed: 657, kind: "cumulus", drift: 45 },
+  { x: 4500, y: 180, w: 560, h: 190, seed: 643, kind: "cumulus", drift: 35 },
+  { x: 5200, y: 130, w: 600, h: 150, seed: 667, kind: "cumulus", drift: 45 },
+  { x: 5900, y: 168, w: 760, h: 230, seed: 641, kind: "cumulus", count: 52, drift: 40 },
+];
+
+// ------------------------------------------------------------------ Level 10: Coast at Dawn (Game King sandbox)
+// Last night on Earth. Clifftop farm road -> army camp -> the last paddock -> the shoreline. Dawn slowly
+// brightens: cloud cover thins and soldiers see further. Feed under pressure, cross the shoreline, hide in the
+// sea bank. Energy at the shore decides the ending: >= escapeEnergy = escape to space, less = captured.
+export const COAST = {
+  ...A51,
+  W: 5600,
+  hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 }, // no hangar on this level
+  start: { x: 300, y: 170 },
+  checkpoint0: { x: 300, y: 170 },
+  checkpoint1: { x: 2760, y: 185 },
+  pen: { x0: 2900, x1: 3250 },
+  cows: [2960, 3070, 3180],
+  guard: { x: 3320 },
+  soldiers: [{ x: 700, dir: 1 }, { x: 1150, dir: -1 }, { x: 1500, dir: 1 }, { x: 1900, dir: -1 }, { x: 2300, dir: 1 }, { x: 2650, dir: -1 },
+    { x: 3450, dir: 1 }, { x: 3800, dir: -1 }, { x: 4150, dir: 1 }, { x: 4500, dir: -1 }, { x: 4700, dir: 1 }],
+  soldierSeeBase: 480,
+  sign: { x: -5000 },
+  tower: { x: -5000 },
+  towers: [
+    { x: 900, y: 372, c: -1.6, r: 0.8, sp: 0.4, ph: 0.4 },
+    { x: 1750, y: 362, c: -1.4, r: 0.82, sp: 0.38, ph: 2.1 },
+    { x: 2500, y: 366, c: -1.8, r: 0.8, sp: 0.42, ph: 3.9 },
+    { x: 3450, y: 360, c: -1.5, r: 0.85, sp: 0.44, ph: 5.0 },
+    { x: 4100, y: 368, c: -1.65, r: 0.8, sp: 0.46, ph: 1.2 },
+    { x: 4700, y: 372, c: -1.45, r: 0.82, sp: 0.5, ph: 4.4 },
+  ],
+  fence: 4800, // the shoreline / cliff edge
+  exitX: 4900,
+  truckStops: [2350, 4350],
+  energyStart: 0.2,
+  energyMinExit: 0, // you can always leave; the Energy check decides the ending
+  escapeEnergy: 0.6, // two cows (0.2 + 0.3 + 0.25 = 0.75) = space; one cow (0.5) = captured
+  feedGain: [0.3, 0.25, 0.2],
+  winHidden: 2.0,
+  penHeatBase: 0.3, // same paddock heat as Area 51; dawn pressure comes from faster catches
+  penHeatFacing: 1.0,
+  failExposure: 2.0, // A51 2.8: once locked at dawn you are caught faster (warning before lock unchanged)
+  dawnTime: 170, // seconds from first light to full dawn
+  dawnThin: 0.3, // cloud cover lost at full dawn (thick cores still hide you)
+  dawnSee: 0.5, // soldiers see this much further at full dawn
+};
+export const COAST_CLOUDS = [
+  { x: 300, y: 165, w: 600, h: 190, seed: 115, kind: "cumulus", drift: 45 }, // start cover
+  { x: 1100, y: 140, w: 560, h: 170, seed: 133, kind: "cumulus", drift: 55 },
+  { x: 1950, y: 160, w: 600, h: 180, seed: 151, kind: "cumulus", drift: 50 },
+  { x: 1500, y: 100, w: 700, h: 110, seed: 157, kind: "flat", drift: 70 },
+  { x: 2760, y: 185, w: 560, h: 190, seed: 123, kind: "cumulus", drift: 40 }, // staging over the paddock
+  { x: 3150, y: 262, w: 360, h: 90, seed: 191, kind: "flat", drift: 40 }, // low risky ledge
+  { x: 3700, y: 150, w: 600, h: 180, seed: 167, kind: "cumulus", drift: 55 },
+  { x: 4400, y: 170, w: 520, h: 170, seed: 143, kind: "cumulus", drift: 50 },
+  { x: 5250, y: 165, w: 800, h: 240, seed: 141, kind: "cumulus", count: 52, drift: 35 }, // the sea bank
+];

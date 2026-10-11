@@ -1,7 +1,7 @@
 // Cloud cover. The SAME puff list (positions, sizes, sprite alpha, tear fade) is used both to draw
 // the clouds and to answer "how hidden is this point?", so what you see is what witnesses see.
 // Sprites lean on Josh's heights ref: tall volumetric cumulus + flatter horizontal layers.
-import { clamp, fbm2, makeCanvas, rng, smoothstep, TAU, damp } from "./util.js?v=15";
+import { clamp, fbm2, makeCanvas, rng, smoothstep, TAU, damp } from "./util.js?v=19";
 
 const S = 128; // sprite resolution
 const VARIANTS = 6; // 0-2 tall cumulus, 3-5 flatter layers
@@ -279,15 +279,19 @@ export class CloudField {
     const order = this.clouds.slice().sort((a, b) => a.cy0 - b.cy0);
     for (const c of order) {
       if (c.cx + c.w < viewL - 200 || c.cx - c.w > viewR + 200) continue;
-      for (const p of c.puffs) {
+      const lite = this.lite;
+      for (let i = 0; i < c.puffs.length; i++) {
+        const p = c.puffs[i];
+        // v17 Lite: draw every other small puff, the big ones a touch larger (same cover/density for gameplay)
+        if (lite && (i & 1) && (p.rr < 70 || c.tough)) continue;
         const sp = this.sprites[p.v];
-        const s = p.rr * 2;
+        const s = p.rr * 2 * (lite ? 1.12 : 1);
         ctx.globalAlpha = p.fade * (c.kind === "flat" ? 0.92 : 1);
         const L = light(p.x, p.y) * (c.tough ? 0.55 : 1) + flash * 0.9;
         const k = L < 0.2 ? 0 : L < 0.4 ? 1 : L < 0.62 ? 2 : 3;
-        ctx.drawImage(sp.lit[k], p.x - p.rr, p.y - p.rr, s, s);
+        ctx.drawImage(sp.lit[k], p.x - s / 2, p.y - s / 2, s, s);
         // storm banks: a second, darker body pass so they read as heavy, solid cover
-        if (c.tough) ctx.drawImage(sp.body, p.x - p.rr * 0.9, p.y - p.rr * 0.85, s * 0.9, s * 0.9);
+        if (c.tough && !lite) ctx.drawImage(sp.body, p.x - p.rr * 0.9, p.y - p.rr * 0.85, s * 0.9, s * 0.9);
       }
     }
     if (flash > 0.02) {
