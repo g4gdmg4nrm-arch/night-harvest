@@ -1,0 +1,444 @@
+// Boot, settings, menus, the frame loop and automatic quality scaling.
+import { VH, LEVELS, LOCK_LEVELS } from "./config.js?v=15";
+import { loadImage, clamp } from "./util.js?v=15";
+import { Game } from "./game.js?v=15";
+import { Input } from "./input.js?v=15";
+import { audio } from "./audio.js?v=15";
+
+const $ = (id) => document.getElementById(id);
+const KEY = "nh-settings-v1";
+const DEFAULTS = { brightness: 1, music: 0.8, amb: 0.8, sfx: 0.9, quality: "auto", craft: "stalker", reducedFlash: false, reducedStings: false };
+
+function loadSettings() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEY) || "{}");
+    const s = { ...DEFAULTS };
+    for (const k of Object.keys(DEFAULTS)) {
+      if (typeof raw[k] === typeof DEFAULTS[k]) s[k] = raw[k];
+    }
+    s.brightness = clamp(Number(s.brightness) || 1, 0.7, 1.5);
+    for (const k of ["music", "amb", "sfx"]) s[k] = clamp(Number(s[k]), 0, 1);
+    if (!["auto", "low", "medium", "high"].includes(s.quality)) s.quality = "auto";
+    if (!["stalker", "raider"].includes(s.craft)) s.craft = "stalker";
+    return s;
+  } catch {
+    return { ...DEFAULTS };
+  }
+}
+const PKEY = "nh-progress-v1";
+function loadProgress() {
+  try {
+    const p = JSON.parse(localStorage.getItem(PKEY) || "{}");
+    return { beaten: Array.isArray(p.beaten) ? p.beaten.filter((n) => typeof n === "number") : [] };
+  } catch {
+    return { beaten: [] };
+  }
+}
+function saveProgress(p) {
+  try {
+    localStorage.setItem(PKEY, JSON.stringify(p));
+  } catch {
+    /* private mode */
+  }
+}
+function saveSettings(s) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(s));
+  } catch {
+    /* private mode */
+  }
+}
+
+const isTouch = "ontouchstart" in window || (navigator.maxTouchPoints || 0) > 0 || matchMedia("(pointer: coarse)").matches;
+if (isTouch) document.body.classList.add("touch");
+
+async function boot() {
+  const settings = loadSettings();
+  const trees = await Promise.all([0, 1, 2, 3, 4, 5, 6].map((i) => loadImage(`img/tree${i}.png`)));
+  const canvas = $("c");
+  const game = new Game(canvas, trees, settings);
+  const input = new Input($("wrap"));
+  game.setCraft(settings.craft);
+  audio.setLevels({ music: settings.music, amb: settings.amb, sfx: settings.sfx });
+  audio.reducedStings = settings.reducedStings;
+  audio.setMusic("calm");
+  // Gamer Girl menu fear pack (MENU-FEAR-PASS.md)
+  ["menu_open", "menu_piano", "menu_sting_1", "menu_sting_2", "heartbeat_loop"].forEach((n) => audio.warm(n));
+  let menuScareDone = false;
+  let menuHeartTimer = 0;
+  const stopMenuHeart = () => { audio.menuHeart = 0; };
+  const playMenuScare = () => {
+    if (menuScareDone || game.mode !== "menu") return;
+    menuScareDone = true;
+    // Prefer the layered one-shot; otherwise stem sequence (piano → sting_1 @0.85 → sting_2 @1.55)
+    if (audio.has("menuOpen")) {
+      audio.fx("menuOpen", { gain: 0.95 });
+    } else if (audio.has("menuPiano")) {
+      audio.fx("menuPiano", { gain: 0.95 }); // one piano hit only
+      if (audio.has("menuSting")) {
+        // v11: only if still on the menu (tapping Start fast used to land these stings in the hangar)
+        setTimeout(() => game.mode === "menu" && audio.fx("menuSting", { gain: 0.85 }), 850);
+        setTimeout(() => game.mode === "menu" && audio.fx("menuSting", { gain: 0.8 }), 1550);
+      }
+    }
+    // As the open dies (~2.3 s): start heartbeat_loop under the menu and keep it running
+    clearTimeout(menuHeartTimer);
+    menuHeartTimer = setTimeout(() => {
+      if (game.mode === "menu" && audio.has("heartbeat")) audio.menuHeart = 1;
+    }, 2300);
+  };
+  // First tap unlocks audio; if we're on the menu, install fear
+  const armMenuScare = () => { if (game.mode === "menu") playMenuScare(); };
+  ["pointerdown", "touchstart", "keydown"].forEach((ev) =>
+    window.addEventListener(ev, armMenuScare, { once: true, passive: true })
+  );
+
+  // ------------------------------------------------------------ quality and sizing
+  const Q = { low: 0, medium: 1, high: 2 };
+  let q = settings.quality === "auto" ? 1 : Q[settings.quality]; // v13: auto starts at medium (old ternary was 1 either way)
+  let autoUps = 0;
+  const pixelRatio = () => {
+    const d = window.devicePixelRatio || 1;
+    return q >= 2 ? Math.min(d, 2) : q >= 1 ? Math.min(d, 1.5) : Math.min(d, 1) * 0.8;
+  };
+  const resize = () => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const pr = pixelRatio();
+    const cw = Math.round(w * pr);
+    const ch = Math.round(h * pr);
+    // v13 perf: only touch the backing store when it really changes (setting width clears + reallocates)
+    if (canvas.width !== cw) canvas.width = cw;
+    if (canvas.height !== ch) canvas.height = ch;
+    const s = canvas.height / VH;
+    game.resize(canvas.width / s, s);
+    $("rotate").classList.toggle("hidden", !(isTouch && h > w));
+  };
+  const applyQuality = (nq) => {
+    q = clamp(nq, 0, 2);
+    game.setQuality(q);
+    resize();
+  };
+  applyQuality(q);
+  window.addEventListener("resize", resize);
+  window.addEventListener("orientationchange", () => setTimeout(resize, 200));
+
+  // ------------------------------------------------------------ UI
+  const show = (id, on) => $(id).classList.toggle("hidden", !on);
+  let settingsFrom = "menu";
+  let paused = false;
+  const calib = () => {
+    // the swatch gets roughly the same lift the game applies, so "just visible" means calibrated
+    const b = settings.brightness;
+    $("calibSym").style.filter = b >= 1 ? `brightness(${1 + (b - 1) * 4})` : `brightness(${Math.max(0.15, 1 - (1 - b) * 1.7)})`;
+  };
+  const syncSettingsUI = () => {
+    setTimeout(calib, 0);
+    $("sBright").value = settings.brightness;
+    $("sMusic").value = settings.music;
+    $("sAmb").value = settings.amb;
+    $("sSfx").value = settings.sfx;
+    $("sQuality").value = settings.quality;
+    $("sCraft").value = settings.craft;
+    $("sFlash").checked = settings.reducedFlash;
+    $("sStings").checked = settings.reducedStings;
+  };
+  const onSetting = () => {
+    settings.brightness = Number($("sBright").value);
+    calib();
+    settings.music = Number($("sMusic").value);
+    settings.amb = Number($("sAmb").value);
+    settings.sfx = Number($("sSfx").value);
+    settings.reducedFlash = $("sFlash").checked;
+    settings.reducedStings = $("sStings").checked;
+    settings.craft = $("sCraft").value === "raider" ? "raider" : "stalker";
+    game.setCraft(settings.craft);
+    const nq = $("sQuality").value;
+    if (nq !== settings.quality) {
+      settings.quality = nq;
+      if (nq !== "auto") applyQuality(Q[nq]);
+    }
+    audio.setLevels({ music: settings.music, amb: settings.amb, sfx: settings.sfx });
+    audio.reducedStings = settings.reducedStings;
+    saveSettings(settings);
+  };
+  for (const id of ["sBright", "sMusic", "sAmb", "sSfx", "sQuality", "sCraft", "sFlash", "sStings"]) {
+    $(id).addEventListener("input", onSetting);
+    $(id).addEventListener("change", onSetting);
+  }
+  const openSettings = (from) => {
+    settingsFrom = from;
+    syncSettingsUI();
+    show("menu", false);
+    show("pause", false);
+    show("settings", true);
+  };
+  $("btnSettings").onclick = () => openSettings("menu");
+  $("btnPSettings").onclick = () => openSettings("pause");
+  $("btnBack").onclick = () => {
+    show("settings", false);
+    show(settingsFrom, true);
+  };
+  const progress = loadProgress();
+  const ALL = /[?&]all\b/.test(location.search);
+  // Area 51 and Quiet Farm are always open; Storm Farm stays locked while it's a work in progress (?all opens it)
+  const unlocked = (n) => {
+    const L = LEVELS.find((l) => l.id === n);
+    if (!L) return false;
+    if (ALL || !LOCK_LEVELS) return true;
+    if (L.wip) return false;
+    return n <= 2 || progress.beaten.includes(n - 1);
+  };
+  const syncLevels = () => {
+    for (const L of LEVELS) {
+      const b = document.querySelector(`#levels .lvl[data-level="${L.id}"]`);
+      if (!b) continue;
+      const open = unlocked(L.id);
+      b.classList.toggle("locked", !open);
+      $("lvlTag" + L.id).textContent = progress.beaten.includes(L.id) ? "taken" : !open ? (L.wip ? "soon" : "locked") : L.id === 1 ? "new" : "";
+    }
+  };
+  const touchy = () => input.touchUsed || isTouch;
+  game.touchy = touchy;
+  let a51Hint = "";
+  let a51HintT = 0;
+  const setHint = () => {
+    if (game.L.kind === "a51") {
+      a51Hint = game.a51.hint;
+      a51HintT = 0;
+      $("hint").textContent = a51Hint;
+      return;
+    }
+    if (game.L.storm) {
+      $("hint").textContent = touchy()
+        ? "Storm  ·  when the wind dies, get into the big dark cloud"
+        : "Storm  ·  when the wind dies, get into the big dark cloud  ·  SPACE feed  ·  SHIFT burst";
+      return;
+    }
+    $("hint").textContent = touchy()
+      ? "Hide in cloud  ·  hold FEED over the cow  ·  BURST back to cover"
+      : "WASD / arrows drift  ·  hold SPACE to feed  ·  SHIFT burst  ·  P pause";
+  };
+  let level = 1;
+  const start = (lv) => {
+    if (typeof lv === "number") level = lv;
+    show("levels", false);
+    show("menu", false);
+    show("end", false);
+    show("pause", false);
+    show("hud", true);
+    paused = false;
+    input.enabled = true;
+    input.releaseAll();
+    setHint();
+    $("hint").style.opacity = "1";
+    stopMenuHeart();
+    game.startPlay(level);
+    setHint();
+    $("hud").classList.toggle("a51", game.L.kind === "a51");
+    show("energy", false);
+    eVis = null; // v11: re-sync the Energy HUD from scratch on every start
+    show("btnNext", false);
+  };
+  const toMenu = () => {
+    menuScareDone = false;
+    stopMenuHeart();
+    // Re-arm first-tap scare for the next visit to the menu
+    const rearm = () => { if (game.mode === "menu") playMenuScare(); };
+    ["pointerdown", "touchstart", "keydown"].forEach((ev) =>
+      window.addEventListener(ev, rearm, { once: true, passive: true })
+    );
+    paused = false;
+    input.enabled = false;
+    input.releaseAll();
+    show("pause", false);
+    show("end", false);
+    show("hud", false);
+    show("levels", false);
+    show("energy", false);
+    eVis = null;
+    show("menu", true);
+    audio.setPaused(false);
+    game.toMenu();
+  };
+  const setPaused = (p) => {
+    if (game.mode !== "play" && p) return;
+    paused = p;
+    input.releaseAll();
+    show("pause", p);
+    show("settings", false);
+    audio.setPaused(p);
+  };
+  $("btnStart").onclick = () => start(1);
+  $("btnAgain").onclick = () => start(level);
+  $("btnNext").onclick = () => unlocked(level + 1) && start(level + 1);
+  $("btnLevels").onclick = () => {
+    syncLevels();
+    show("menu", false);
+    show("levels", true);
+  };
+  $("btnLvlBack").onclick = () => {
+    show("levels", false);
+    show("menu", true);
+  };
+  for (const b of document.querySelectorAll("#levels .lvl")) b.onclick = () => unlocked(+b.dataset.level) && start(+b.dataset.level);
+  $("btnEndMenu").onclick = toMenu;
+  $("btnMenu").onclick = toMenu;
+  $("btnResume").onclick = () => setPaused(false);
+  $("btnRestart").onclick = () => {
+    setPaused(false);
+    game.resetEncounter(false);
+  };
+  $("btnPause").onclick = () => setPaused(true);
+  document.addEventListener("visibilitychange", () => document.hidden && game.mode === "play" && setPaused(true));
+
+  const stats = { frames: 0, times: [], work: [], log: [], q: () => q };
+  game.onEvent = (e) => {
+    stats.log.push([Math.round(game.gt * 10) / 10, e]);
+    if (e === "fail") {
+      $("seen").textContent = game.L.kind === "a51" ? "Caught." : "Seen.";
+      show("seen", true);
+      input.releaseAll();
+    }
+    if (e === "restarted") show("seen", false);
+    if (e === "storm-warn" && game.L.storm && game.st.n === 0) {
+      // first storm: one reminder as the wind turns
+      $("hint").textContent = "The wind is turning  ·  get to the big dark cloud";
+      $("hint").style.opacity = "1";
+      game.hintT = 6;
+    }
+    if (e === "win") {
+      input.enabled = false;
+      const lv = game.level;
+      if (!progress.beaten.includes(lv)) progress.beaten.push(lv), saveProgress(progress);
+      setTimeout(() => {
+        const L = LEVELS.find((l) => l.id === lv) || {};
+        $("endTitle").textContent = L.kind === "a51" ? "Out." : "Gone.";
+        $("endText").textContent =
+          L.kind === "a51"
+            ? "The base is still screaming behind you. Somewhere out there, a farm is asleep."
+            : L.storm
+              ? "The storm closes over the farm. Nothing saw it leave."
+              : "The night closes over the farm.";
+        show("btnNext", unlocked(lv + 1));
+        show("hud", false);
+        show("end", true);
+      }, 3200);
+    }
+    if (game.L.kind !== "a51" && (e === "harvested" || e.startsWith("spotted"))) $("hint").style.opacity = "0";
+  };
+
+  // ------------------------------------------------------------ Area 51 HUD: the hint follows the level's state, the Energy bar
+  let eShown = -1;
+  let eLow = null;
+  let eVis = null;
+  let eGainT = 0;
+  let ePendW = "";
+  const syncA51 = (dt) => {
+    const a = game.a51;
+    if (a.hint !== a51Hint) {
+      a51Hint = a.hint;
+      a51HintT = 0;
+      $("hint").textContent = a51Hint;
+    }
+    a51HintT += dt;
+    $("hint").style.opacity = a51Hint && game.mode === "play" && a51HintT < 9 ? "1" : "0";
+    const vis = !!a.barVisible && game.mode !== "menu";
+    if (vis !== eVis) show("energy", (eVis = vis));
+    if (!vis) return;
+    const e = clamp(a.energyShown, 0, 1);
+    if (Math.abs(e - eShown) > 0.002) {
+      if (e > eShown + 0.01 && eShown >= 0) eGainT = 0.5;
+      eShown = e;
+      $("efill").style.width = (e * 100).toFixed(1) + "%";
+      $("epct").textContent = Math.round(e * 100) + "%";
+    }
+    // v11: faint preview of the Energy the animal you're drawing up will give (lands only when it's taken)
+    const pend = clamp(a.energyPending || 0, 0, 1 - e);
+    const pw = (pend * 100).toFixed(1) + "%";
+    const pl = (e * 100).toFixed(1) + "%";
+    if (pw + pl !== ePendW) {
+      ePendW = pw + pl;
+      $("epend").style.left = pl;
+      $("epend").style.width = pw;
+      $("epend").style.display = pend > 0.002 ? "block" : "none";
+    }
+    eGainT -= dt;
+    $("energy").classList.toggle("gain", eGainT > 0);
+    const low = a.energy < 0.2;
+    if (low !== eLow) $("energy").classList.toggle("low", (eLow = low));
+  };
+
+  // ------------------------------------------------------------ v13 EMP readout
+  let empTxt = "";
+  const syncEmp = () => {
+    const cd = Math.ceil(game.empCool || 0);
+    const txt = cd > 0 ? String(cd) : "EMP";
+    if (txt !== empTxt) {
+      if (txt === "EMP" && empTxt && empTxt !== "EMP" && game.mode === "play") audio.fx("empReady", { gain: 0.6 });
+      empTxt = txt;
+      $("btnEmp").textContent = txt;
+      $("btnEmp").classList.toggle("cool", cd > 0);
+      $("empStat").textContent = cd > 0 ? `EMP ${cd}s` : "EMP ready · Q";
+    }
+  };
+
+  // ------------------------------------------------------------ loop
+  let last = performance.now();
+  let acc = 0;
+  let accN = 0;
+  let goodFor = 0;
+  const frame = (now) => {
+    const raw = now - last;
+    last = now;
+    const dt = Math.min(raw / 1000, 1 / 20);
+    if (input.takePause()) setPaused(!paused);
+    if (input.takeRestart() && game.mode === "play") game.resetEncounter(false);
+    if (!paused) {
+      game.update(dt, input);
+      if (game.L.kind === "a51" && game.mode !== "menu") syncA51(dt);
+      else if (game.mode === "play" && game.hintT > 12) $("hint").style.opacity = "0";
+    }
+    syncEmp();
+    const t0 = performance.now();
+    game.render();
+    const work = performance.now() - t0;
+    stats.frames++;
+    stats.times.push(raw);
+    if (stats.times.length > 600) stats.times.shift();
+    // automatic quality: step down when frames run long, step back up (at most twice) when there's room
+    if (settings.quality === "auto" && raw < 250) {
+      acc += raw;
+      accN++;
+      if (accN >= 90) {
+        const avg = acc / accN;
+        const wl = stats.work.slice(-accN);
+        const wAvg = wl.reduce((a, b) => a + b, 0) / Math.max(1, wl.length);
+        // v13: only step down when our own render work is heavy (iOS Low Power Mode caps rAF at 30 fps,
+        // which used to look like a slow device and dropped quality for nothing)
+        if (avg > 21 && wAvg > 9 && q > 0) {
+          applyQuality(q - 1);
+          goodFor = 0;
+        } else if (avg < 14) {
+          goodFor++;
+          if (goodFor >= 4 && q < 2 && autoUps < 2) {
+            autoUps++;
+            applyQuality(q + 1);
+            goodFor = 0;
+          }
+        } else goodFor = 0;
+        acc = 0;
+        accN = 0;
+      }
+    }
+    stats.lastWork = work;
+    stats.work = stats.work || [];
+    stats.work.push(work);
+    if (stats.work.length > 600) stats.work.shift();
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+  window.__nh = { game, input, audio, stats, settings, start, toMenu, setPaused, applyQuality, progress };
+}
+
+boot();
