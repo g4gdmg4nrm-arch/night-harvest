@@ -1,8 +1,8 @@
 // Everything that is not an actor: sky, moon, distant cloud banks, hills, three layers of trees,
 // haze, the farm, the road, fog, the long field grass and the dark foreground grass.
-import { VH, WORLD_W, GROUND, HOUSE, MOON, roadY } from "./config.js?v=15";
-import { clamp, damp, fbm2, lerp, makeCanvas, noise1, noise2, rng, smoothstep, TAU } from "./util.js?v=15";
-import { cloudSprites } from "./clouds.js?v=15";
+import { VH, WORLD_W, GROUND, HOUSE, MOON, roadY } from "./config.js?v=19";
+import { clamp, damp, fbm2, lerp, makeCanvas, noise1, noise2, rng, smoothstep, TAU } from "./util.js?v=19";
+import { cloudSprites } from "./clouds.js?v=19";
 
 function tint(img, color) {
   const c = makeCanvas(img.width, img.height);
@@ -249,7 +249,7 @@ export class Scene {
     const r = rng(9);
     // long field grass (playable plane), in uneven clumps; mown short in the yard
     this.field = [];
-    const step = q >= 2 ? 3.4 : q >= 1 ? 4.6 : 7;
+    const step = q >= 2 ? 3.4 : q >= 1 ? 4.6 : q >= 0 ? 7 : 11; // v17 Lite: sparser field grass
     for (let x = 0; x < WORLD_W; x += step * (0.6 + r() * 0.8)) {
       const yard = x > HOUSE.x - 300 && x < HOUSE.x + HOUSE.w + 30;
       const clump = 0.5 + 0.5 * noise1(x * 0.02 + 4);
@@ -383,6 +383,7 @@ export class Scene {
 
   /** v14: warm lights punch back through the fog (cheap: a few small additive dots). */
   drawWarmGlints(ctx, s, camX, t, car) {
+    if (this.quality < 0) return; // v17 Lite
     ctx.setTransform(s, 0, 0, s, -camX * s, 0);
     ctx.globalCompositeOperation = "lighter";
     if (!this.glint) {
@@ -758,6 +759,7 @@ export class Scene {
       { y: 520, h: 80, p: 1.0, sp: 16, a: 0.32 },
     ];
     for (const l of layers) {
+      if (this.quality < 0 && l.p < 1) continue; // v17 Lite: one fog layer
       const off = -((camX * l.p + t * l.sp * (0.6 + wind.gust)) % (fw * 1.6));
       ctx.globalAlpha = l.a * alpha;
       for (let x = off; x < VW; x += fw * 1.6) ctx.drawImage(this.fog, x, l.y, fw * 1.6, l.h);
@@ -792,7 +794,7 @@ export class Scene {
   }
   drawStrips(ctx, s, camX, VW, t, wind, infl, st, p, amp, lag, yOff) {
     if (!st) return;
-    const SEG = 48; // divides the tile width (480)
+    const SEG = this.quality < 0 ? 120 : 48; // divides the tile width (480); v17 Lite: 4x fewer slices
     const off = camX * p;
     const X0 = -(((off % SEG) + SEG) % SEG) - SEG;
     const H = st.H;
@@ -852,7 +854,7 @@ export class Scene {
 
 Scene.prototype.drawFrontGrassStrips = function (ctx, s, camX, VW, t, wind, infl) {
   if (!this.stripFront) this.buildFrontStrips();
-  this.drawStrips(ctx, s, camX, VW, t, wind, infl, this.stripBack, 1.12, 0.8, -0.05, -4);
+  if (this.quality >= 0) this.drawStrips(ctx, s, camX, VW, t, wind, infl, this.stripBack, 1.12, 0.8, -0.05, -4); // v17 Lite: front layer only
   this.drawStrips(ctx, s, camX, VW, t, wind, infl, this.stripFront, 1.28, 1.0, -0.15, 12);
   ctx.setTransform(s, 0, 0, s, 0, 0);
   const g = ctx.createLinearGradient(0, VH - 120, 0, VH);
