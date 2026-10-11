@@ -466,7 +466,8 @@ export const COAST = {
   fence: 4800, // the shoreline / cliff edge
   exitX: 4900,
   truckStops: [2350, 4350],
-  energyStart: 0.2,
+  energyStart: 0.2, // fallback when opened from the Levels menu
+  carryCost: 0.35, carryMin: 0.2, carryMax: 0.45, // v20: start = level 9 Energy - 0.35, clamped (0.72 -> 0.37: one cow escapes)
   energyMinExit: 0, // you can always leave; the Energy check decides the ending
   escapeEnergy: 0.6, // two cows (0.2 + 0.3 + 0.25 = 0.75) = space; one cow (0.5) = captured
   feedGain: [0.3, 0.25, 0.2],

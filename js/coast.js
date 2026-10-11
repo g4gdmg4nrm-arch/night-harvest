@@ -3,10 +3,10 @@
 // (thick cores still hide you) and soldiers see further. Same rules as Area 51: no combat, hide / feed / burst / EMP,
 // and every searchlight catch has the ~1.5 s hesitation (1.2 s feeding low) before it locks.
 // At the shoreline the Energy check decides the ending: enough = escape to space, too little = captured.
-import { VH, GROUND, COAST, COAST_CLOUDS, EMP } from "./config.js?v=19";
-import { clamp, lerp, makeCanvas, rng, smoothstep, TAU } from "./util.js?v=19";
-import { Area51 } from "./a51.js?v=19";
-import { audio } from "./audio.js?v=19";
+import { VH, GROUND, COAST, COAST_CLOUDS, EMP } from "./config.js?v=20";
+import { clamp, lerp, makeCanvas, rng, smoothstep, TAU } from "./util.js?v=20";
+import { Area51 } from "./a51.js?v=20";
+import { audio } from "./audio.js?v=20";
 
 export class Coast extends Area51 {
   constructor(game) {
@@ -30,10 +30,25 @@ export class Coast extends Area51 {
     for (let i = 0; i < 260; i++) this.grass.push({ x: r() * COAST.fence, h: 10 + r() * 26, p: r() * TAU });
   }
 
+  /** v20 carry rule: arriving via Next from level 9 starts with that run's saved Energy, minus the night's
+   *  crossing cost (COAST.carryCost), kept within carryMin..carryMax so the shore still needs at least one feed.
+   *  Opened directly from the Levels menu (or nothing saved): COAST.energyStart. */
+  startEnergy() {
+    let e = COAST.energyStart;
+    if (this.g.carryFrom === 9) {
+      let v = NaN;
+      try { v = parseFloat(localStorage.getItem("nh-energy-l9")); } catch { /* private mode */ }
+      if (isFinite(v)) e = Math.min(COAST.carryMax, Math.max(COAST.carryMin, v / 100 - COAST.carryCost));
+    }
+    this.carried = e;
+    return e;
+  }
+
   reset(cp = this.checkpoint) {
     // there is no hangar: a fresh start is already "out" at the start cloud
     super.reset(cp === 0 ? 1 : cp);
     this.checkpoint = cp;
+    if (cp !== 2) this.energy = this.startEnergy(); // v20: Energy carried over from level 9
     this.dawn = 0;
     this.ending = null;
     this.endFx = false;
@@ -48,7 +63,7 @@ export class Coast extends Area51 {
     if (cp === 2) this.dawn = 0.35; // the paddock checkpoint keeps some of the light
     this.dawnT = this.dawn * COAST.dawnTime;
     audio.setMusic(null); // level 10 uses its own music bed
-    audio.warmLevel(10);
+    this.g.warmOnce(10);
     this.setHint();
   }
 
