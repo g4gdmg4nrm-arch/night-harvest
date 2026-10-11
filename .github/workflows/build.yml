@@ -1,0 +1,36 @@
+name: build-pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: { group: pages, cancel-in-progress: true }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode binaries
+        run: |
+          set -e
+          mkdir -p out && rsync -a --exclude .git --exclude .github --exclude b64 ./ out/
+          ok=1
+          if ls b64/bundle.tar.b64.* >/dev/null 2>&1; then cat $(ls b64/bundle.tar.b64.* | sort) | base64 -d | tar -xf - -C out; fi
+          while read p size; do
+            [ -z "$p" ] && continue
+            key=$(echo "$p" | sed 's#/#__#g')
+            if ls b64/"$key".[0-9][0-9][0-9] >/dev/null 2>&1; then
+              mkdir -p "out/$(dirname "$p")"
+              cat $(ls b64/"$key".[0-9][0-9][0-9] | sort) | base64 -d > "out/$p"
+            fi
+            [ -f "out/$p" ] || { echo "missing $p"; ok=0; continue; }
+            got=$(stat -c%s "out/$p"); [ "$got" = "$size" ] || { echo "size mismatch $p $got != $size"; ok=0; }
+          done < binaries.txt
+          [ $ok = 1 ] || exit 1
+          touch out/.nojekyll
+      - name: Push to gh-pages
+        run: |
+          cd out && git init -q -b gh-pages && git add -A
+          git -c user.name=pages-bot -c user.email=pages-bot@users.noreply.github.com commit -qm "deploy ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
