@@ -1,13 +1,21 @@
 // The first encounter: observe from cloud, descend, feed on the cow, get noticed, escape.
-import { EMP, CRAFTS, VH, WORLD_W, GROUND, HOUSE, COW_X, CLOUD_LAYERS, CREATURE_START, TUNE, LEVELS, levelById, STORM_LAYERS, STORM } from "./config.js?v=15";
-import { Area51 } from "./a51.js?v=15";
-import { clamp, damp, lerp, makeCanvas, noise1, smoothstep, TAU } from "./util.js?v=15";
-import { Wind } from "./wind.js?v=15";
-import { CloudField, cloudSprites } from "./clouds.js?v=15";
-import { Scene } from "./scene.js?v=15";
-import { Creature, MenuDirector } from "./creature.js?v=15";
-import { Witness, Car, Cow, HerdCow } from "./actors.js?v=15";
-import { audio } from "./audio.js?v=15";
+import { EMP, CRAFTS, VH, WORLD_W, GROUND, HOUSE, COW_X, CLOUD_LAYERS, CREATURE_START, TUNE, LEVELS, levelById, STORM_LAYERS, STORM } from "./config.js?v=19";
+import { Area51 } from "./a51.js?v=19";
+import { Town } from "./town.js?v=19";
+import { Rodeo } from "./rodeo.js?v=19";
+import { Suburb } from "./suburb.js?v=19";
+import { Power } from "./power.js?v=19";
+import { Convoy } from "./convoy.js?v=19";
+import { Coast } from "./coast.js?v=19";
+const MODS = { town: Town, rodeo: Rodeo, suburb: Suburb, power: Power, convoy: Convoy, coast: Coast };
+import { clamp, damp, lerp, makeCanvas, noise1, smoothstep, TAU } from "./util.js?v=19";
+import { Wind } from "./wind.js?v=19";
+import { CloudField, cloudSprites } from "./clouds.js?v=19";
+import { Scene } from "./scene.js?v=19";
+import { Creature, MenuDirector } from "./creature.js?v=19";
+import { Witness, Car, Cow, HerdCow } from "./actors.js?v=19";
+import { audio } from "./audio.js?v=19";
+import { hwyStart, hwyTick, hwyDraw, hwyTruck, HWY } from "./highway.js?v=19";
 
 export class Game {
   constructor(canvas, trees, settings) {
@@ -68,6 +76,8 @@ export class Game {
   setQuality(q) {
     this.quality = q;
     this.scene.setQuality(q);
+    // v17 Lite tier (q = -1): cheaper clouds everywhere
+    for (const cf of [this.quietClouds, this.stormClouds, this.a51 && this.a51.clouds, this.town && this.town.clouds, this.rodeo && this.rodeo.clouds, this.suburb && this.suburb.clouds, this.power && this.power.clouds, this.convoy && this.convoy.clouds, this.coast && this.coast.clouds]) if (cf) cf.lite = q < 0;
   }
 
   resize(VW, s) {
@@ -81,13 +91,22 @@ export class Game {
     this.level = this.L.id;
     this.clouds = this.L.storm ? this.stormClouds : this.quietClouds;
   }
+  get isMod() {
+    return this.L.kind === "a51" || !!MODS[this.L.kind];
+  }
+  /** The self-contained level module (Area 51 or levels 5-10), built on first use. */
+  get mod() {
+    const K = MODS[this.L.kind];
+    if (!K) return this.a51;
+    return this[this.L.kind] || (this[this.L.kind] = new K(this)); // this.town, this.rodeo, ... (main.js reads game.coast)
+  }
   get isA51() {
-    return this.L.kind === "a51" && this.mode !== "menu";
+    return this.isMod && this.mode !== "menu";
   }
 
   /** Checkpoint: restore every actor, the clouds, timers and audio scheduling together. */
   resetEncounter(menu = false) {
-    if (!menu && this.L.kind === "a51" && this.a51) return this.a51.reset(); // restart from its last checkpoint
+    if (!menu && this.isMod) return this.mod.reset(); // restart from its last checkpoint
     this.creature.bounds = null;
     this.clouds.reset();
     this.creature.reset(CREATURE_START.x, CREATURE_START.y);
@@ -153,7 +172,8 @@ export class Game {
     clearTimeout(this.thunderTimer);
     clearTimeout(this.whineTimer);
     audio.stopAll();
-    if (!menu) audio.setMusic("calm");
+    if (!menu && this.L.highway) hwyStart(this); // level 4: old music off, warm only level 4's pack
+    else if (!menu) audio.setMusic("calm");
   }
 
   /** v13 craft choice (Settings): applied to the shared creature. */
@@ -194,7 +214,7 @@ export class Game {
 
   startPlay(level = this.level) {
     this.setLevel(level);
-    if (this.L.kind === "a51") this.a51.checkpoint = 0; // a fresh start begins in the hangar
+    if (this.isMod) this.mod.checkpoint = 0; // a fresh start begins in the hangar
     this.mode = "play";
     this.resetEncounter(false);
     this.hintT = 0;
@@ -244,7 +264,7 @@ export class Game {
     if (this.isA51) {
       this.t += dt;
       this.empTick(dt);
-      return this.a51.update(dt, input);
+      return this.mod.update(dt, input);
     }
     this.t += dt;
     this.empTick(dt);
@@ -302,6 +322,7 @@ export class Game {
     }
     this.updateParticles(dt);
     this.updateLightning(dt);
+    if (this.L.highway) hwyTick(this, dt, this.flashPeak || 0);
     // camera
     if (this.mode === "menu") {
       const target = clamp(1610 - this.VW * 0.5, 0, WORLD_W - this.VW);
@@ -603,7 +624,7 @@ export class Game {
     this.carNext -= dt;
     if (!car.active && this.carNext <= 0) {
       car.spawn(Math.max(-1200, this.camX - TUNE.carSpawnBack));
-      this.carNext = 45 + Math.random() * 30;
+      this.carNext = this.L.highway ? HWY.truckMin + Math.random() * (HWY.truckMax - HWY.truckMin) : 45 + Math.random() * 30;
     }
     if (car.active) {
       const dx = c.x - car.x;
@@ -864,7 +885,7 @@ export class Game {
     this.searchDelay = -1;
     if (this.witness.state === "search") this.witness.endSearch();
     this.witness.scared = false;
-    audio.setMusic("calm");
+    audio.setMusic(this.L.highway ? null : "calm");
     this.onEvent("search-ended");
   }
 
@@ -900,7 +921,7 @@ export class Game {
       if (this.mode === "play") audio.releaseDuck(1.0);
       this.flashSeq = { t: 0, x: this.camX + Math.random() * this.VW, peaks: [0, 0.11 + Math.random() * 0.06, 0.32 + Math.random() * 0.15] };
       this.scene.flashX = this.flashSeq.x;
-      this.nextFlash = this.L.storm ? 13 + Math.random() * 14 : 22 + Math.random() * 30;
+      this.nextFlash = this.L.highway ? HWY.flashMin + Math.random() * (HWY.flashMax - HWY.flashMin) : this.L.storm ? 13 + Math.random() * 14 : 22 + Math.random() * 30;
       this.flashCaught = false;
       const delay = 1200 + Math.random() * 2400;
       if (this.flashThunderless) this.flashThunderless = false;
@@ -916,6 +937,7 @@ export class Game {
       }
       if (s.t > 1.2) this.flashSeq = null;
     }
+    this.flashPeak = f;
     const k = this.settings.reducedFlash ? 0.3 : 1;
     this.flash = Math.max(f * 0.8 * k, damp(this.flash, 0, 6, dt));
     this.clouds.flash = this.flash;
@@ -1079,7 +1101,7 @@ export class Game {
     });
     // calm <-> dread with a dead zone and a 4 s minimum hold, so it never flaps
     this.musicHold += dt;
-    if (this.mode === "play" && this.phase === "observe" && this.musicHold > 4) {
+    if (this.mode === "play" && this.phase === "observe" && this.musicHold > 4 && !this.L.highway) {
       const cur = audio.musicState;
       let want = cur === "dread" || cur === "calm" ? cur : "calm";
       if (low > 0.6 || c.feedAmt > 0.2) want = "dread";
@@ -1107,7 +1129,7 @@ export class Game {
 
   // ---------------------------------------------------------------- render
   render() {
-    if (this.isA51) return this.a51.render();
+    if (this.isA51) return this.mod.render();
     const ctx = this.ctx;
     const s = this.s;
     const VW = this.VW;
@@ -1125,12 +1147,14 @@ export class Game {
       this.bg = makeCanvas(bw, bh);
       this.bgCtx = this.bg.getContext("2d", { alpha: false });
     }
-    sc.drawBack(this.bgCtx, s * 0.5, camX, VW, t, this.wind, this.flash, "sky");
+    // v17 Lite: the soft sky cache is refreshed every other frame (it barely moves)
+    this.skyTick = (this.skyTick || 0) + 1;
+    if (this.quality >= 0 || this.skyTick % 2 === 0 || this.flash > 0.02) sc.drawBack(this.bgCtx, s * 0.5, camX, VW, t, this.wind, this.flash, "sky");
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(this.bg, 0, 0, this.canvas.width, this.canvas.height);
-    if (this.L.storm) this.drawStormSky(ctx, s, camX, VW);
+    if (this.L.storm || this.L.highway) this.drawStormSky(ctx, s, camX, VW);
     sc.drawBack(ctx, s, camX, VW, t, this.wind, this.flash, "trees");
-    sc.drawFarMist(ctx, s, camX, VW, t, this.wind);
+    if (this.quality >= 0) sc.drawFarMist(ctx, s, camX, VW, t, this.wind);
     sc.drawFarm(ctx, s, camX, VW, t, this.wind, infl);
     sc.drawFieldGrass(ctx, s, camX, VW, t, this.wind, infl);
     // actors in the farm plane
@@ -1138,7 +1162,9 @@ export class Game {
     const colLight = c.feedAmt * (this.progress > 0.02 ? 1 : 0.3);
     for (const h of this.herd) h.draw(ctx);
     this.cow.draw(ctx, colLight);
+    if (this.L.highway && this.mode !== "menu") hwyDraw(ctx, s, camX, VW, t, this.flash, this.powerOut || 0), ctx.setTransform(s, 0, 0, s, -camX * s, 0);
     this.car.draw(ctx);
+    if (this.L.highway) hwyTruck(ctx, this.car);
     this.witness.draw(ctx, sc.warmAt(this.witness.x, GROUND - 30));
     if (this.mode === "menu") { sc.drawMenuCar(ctx, s, camX, camX + VW * 0.13); ctx.setTransform(s, 0, 0, s, -camX * s, 0); }
     sc.drawLights(ctx, s, camX, VW, t);
@@ -1246,9 +1272,11 @@ export class Game {
       const x0 = -((camX * 0.22 + (this.scudX || 0)) % nb.width);
       ctx.globalAlpha = 0.25 + 0.5 * dark;
       for (let x = x0; x < VW; x += nb.width) ctx.drawImage(nb, x, -70, nb.width, nb.height * 1.15);
-      const x1 = -((camX * 0.3 + (this.scudX || 0) * 1.6 + 400) % nb.width);
-      ctx.globalAlpha = 0.18 + 0.35 * dark;
-      for (let x = x1; x < VW; x += nb.width) ctx.drawImage(nb, x, 40, nb.width, nb.height * 0.8);
+      if (this.quality >= 0) { // v17 Lite: one scud layer
+        const x1 = -((camX * 0.3 + (this.scudX || 0) * 1.6 + 400) % nb.width);
+        ctx.globalAlpha = 0.18 + 0.35 * dark;
+        for (let x = x1; x < VW; x += nb.width) ctx.drawImage(nb, x, 40, nb.width, nb.height * 0.8);
+      }
       ctx.globalAlpha = 1;
     }
     // stripped sky: cold moonlight floods back in where the overcast was torn away

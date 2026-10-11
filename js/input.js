@@ -1,6 +1,6 @@
 // Touch: a floating stick on the left half, Feed (hold) and Burst on the right. Keyboard on desktop.
 // Each touch is tracked by its own pointer id, and everything is released on blur/pause.
-import { clamp } from "./util.js?v=15";
+import { clamp } from "./util.js?v=19";
 
 export class Input {
   constructor(root) {

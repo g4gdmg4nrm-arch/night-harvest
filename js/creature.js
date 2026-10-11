@@ -1,7 +1,7 @@
 // The player: a matte bowl/saucer craft (Josh's refs). Smooth charcoal, dark underside hole,
 // no windows/lights/seams. Muscular motion: slow glides, still hover, sudden swoops and bursts.
-import { WORLD_W, GROUND, TUNE } from "./config.js?v=15";
-import { clamp, damp, lerp, TAU, noise1 } from "./util.js?v=15";
+import { WORLD_W, GROUND, TUNE } from "./config.js?v=19";
+import { clamp, damp, lerp, TAU, noise1 } from "./util.js?v=19";
 
 export class Creature {
   constructor() {
