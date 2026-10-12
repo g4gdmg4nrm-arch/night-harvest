@@ -5,11 +5,11 @@
 // Searchlight fairness (Game King / Gamer Girl): the ballast hum swells as a beam swings near you; a beam that
 // touches you HESITATES (everything goes quiet, ~1.5 s, about 1.2 s if you're low and feeding) before it can lock.
 // Leave the cone or reach thick cloud in that window and it loses you. Only a locked beam builds exposure.
-import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=20";
-import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=20";
-import { CloudField, cloudSprites } from "./clouds.js?v=20";
-import { Cow } from "./actors.js?v=20";
-import { audio } from "./audio.js?v=20";
+import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=21";
+import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=21";
+import { CloudField, cloudSprites } from "./clouds.js?v=21";
+import { Cow } from "./actors.js?v=21";
+import { audio } from "./audio.js?v=21";
 
 const HIDE = 0.62; // cloud density that hides you from a beam
 const wrapA = (a) => {
@@ -858,7 +858,8 @@ export class Area51 {
         // creeps after you slowly, the way an operator squints at something odd
         const a = Math.atan2(c.y - L.y, c.x - L.x);
         const d = wrapA(a - L.ang);
-        L.ang += clamp(d, -0.18 * dt, 0.18 * dt);
+        const bt = this.C.brushTrack ?? 0.18; // v21: per-level brush turn rate (rad/s), default 0.18 = levels 1-8 unchanged
+        L.ang += clamp(d, -bt * dt, bt * dt);
         L.heat = damp(L.heat, 0.6, 4, dt);
         if (inBeam && !hidden) {
           L.brushT += dt;
