@@ -421,7 +421,8 @@ export const CONVOY = {
   energyStart: 0.12,
   energyMinExit: 0.6, // bank two feeds for the finale
   feedGain: [0.32, 0.3, 0.28],
-  failExposure: 2.0, // the army hunts hard: once locked you have less time (A51 2.8)
+  failExposure: 1.6, // v21 (was 2.0): the army hunts hard: once locked you have less time (A51 2.8)
+  brushTrack: 2.0, // v21: a brushing beam follows a fast low flyer (rad/s; default 0.18)
   penHeatBase: 0.35, // paddocks are watched (A51 0.3)
   penHeatFacing: 1.0,
 };
@@ -471,13 +472,15 @@ export const COAST = {
   energyMinExit: 0, // you can always leave; the Energy check decides the ending
   escapeEnergy: 0.6, // two cows (0.2 + 0.3 + 0.25 = 0.75) = space; one cow (0.5) = captured
   feedGain: [0.3, 0.25, 0.2],
+  burstCost: 0.02, climbCost: 0.004, // v21: a careful player who bails often must not bleed the Energy needed for space (A51 0.06 / 0.016)
   winHidden: 2.0,
-  penHeatBase: 0.3, // same paddock heat as Area 51; dawn pressure comes from faster catches
+  penHeatBase: 0.6, // same paddock heat as Area 51; dawn pressure comes from faster catches
   penHeatFacing: 1.0,
-  failExposure: 2.0, // A51 2.8: once locked at dawn you are caught faster (warning before lock unchanged)
+  failExposure: 1.6, // A51 2.8: once locked at dawn you are caught faster (warning before lock unchanged)
   dawnTime: 170, // seconds from first light to full dawn
   dawnThin: 0.3, // cloud cover lost at full dawn (thick cores still hide you)
   dawnSee: 0.5, // soldiers see this much further at full dawn
+  feedSeconds: 1.8, // v21: shorter feed so a careful feed fits inside the hotter paddock (A51 2.4)
 };
 export const COAST_CLOUDS = [
   { x: 300, y: 165, w: 600, h: 190, seed: 115, kind: "cumulus", drift: 45 }, // start cover
