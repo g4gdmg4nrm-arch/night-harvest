@@ -72,7 +72,7 @@ export const LOCK_LEVELS = true;
 // Same ground line and creature as the farm; a wider world. Left -> right: Hangar 18 (start, inside),
 // apron + control tower, searchlight towers, the test-animal pen (first feed), the perimeter fence, open desert.
 export const A51 = {
-  lockFeedMul: 0, brushFeedMul: 0.3, // v22 (level 1 only): a beam on you pins the cow, so careless open feeding is caught before the cow lands
+  lockFeedMul: 0, brushFeedMul: 0.15, noticedFeedMul: 0.6, // v23 (was brush 0.3); v22 (level 1 only): a beam on you pins the cow, so careless open feeding is caught before the cow lands
   W: 6400, // v13 bigger base (was 4700)
   hangar: { x0: 260, x1: 1060, roof: 236, door: 1060 }, // interior x0..x1, roof underside y
   start: { x: 640, y: 405 }, // craft held in the gantry inside the hangar
@@ -194,7 +194,7 @@ export const CRAFTS = {
 // Plan the order: feed on the far street first, or feed near and wait out the far street.
 export const TOWN = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, // v22: level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, // level 1 only
   W: 5000,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 }, // no hangar
   start: { x: 320, y: 170 },
@@ -245,7 +245,7 @@ export const TOWN_CLOUDS = [
 // decoy. Drop on it and the trap springs: relay clack + bulbs stutter (1.3 s warning), then the floodlights snap on.
 export const RODEO = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, // v22: level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, // level 1 only
   W: 5200,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 }, // no hangar
   start: { x: 320, y: 170 },
@@ -300,7 +300,7 @@ export const RODEO_CLOUDS = [
 // dead for a while. Lesson: dark houses aren't safe; watch the windows, feed when the near phones are spent.
 export const SUBURB = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, // v22: level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, // level 1 only
   W: 5000,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 },
   start: { x: 320, y: 170 },
@@ -353,7 +353,7 @@ export const SUBURB_CLOUDS = [
 // Lesson: pick the dark path (high, through cloud, between the lamps).
 export const POWER = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, // v22: level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, // level 1 only
   W: 5800,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 },
   start: { x: 320, y: 170 },
@@ -399,7 +399,7 @@ export const POWER_CLOUDS = [
 // (l9StingConvoyTurns). Three paddocks below the ridge. You need Energy >= exitEnergy to leave: bank 2 feeds.
 export const CONVOY = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, // v22: level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, // level 1 only
   W: 6000,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 },
   start: { x: 320, y: 170 },
@@ -444,6 +444,7 @@ export const CONVOY_CLOUDS = [
   { x: 2650, y: 115, w: 620, h: 150, seed: 673, kind: "cumulus", drift: 40 },
   { x: 3350, y: 115, w: 560, h: 150, seed: 675, kind: "cumulus", drift: 40 },
   { x: 5500, y: 115, w: 560, h: 150, seed: 681, kind: "cumulus", drift: 40 },
+  { x: 3650, y: 115, w: 560, h: 150, seed: 683, kind: "cumulus", drift: 40 }, // v23: one more high cloud between the 3000 and 4500 cows
   { x: 4150, y: 115, w: 620, h: 150, seed: 677, kind: "cumulus", drift: 40 },
   { x: 4850, y: 115, w: 620, h: 150, seed: 679, kind: "cumulus", drift: 40 },
   { x: 5900, y: 168, w: 760, h: 230, seed: 641, kind: "cumulus", count: 52, drift: 40 },
@@ -455,7 +456,7 @@ export const CONVOY_CLOUDS = [
 // sea bank. Energy at the shore decides the ending: >= escapeEnergy = escape to space, less = captured.
 export const COAST = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, // v22: level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, // level 1 only
   W: 5600,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 }, // no hangar on this level
   start: { x: 300, y: 170 },

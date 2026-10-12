@@ -3,10 +3,10 @@
 // soldier points, the nearest convoy truck TURNS and hunts toward you (l9StingConvoyTurns). Three paddocks lie
 // below the ridge; you need Energy >= 60% to leave, so bank two feeds while being hunted. Every catch still
 // goes through the Area 51 brush warning (~1.5 s; ~1.2 s when low and feeding) before a beam can lock.
-import { VH, GROUND, CONVOY, CONVOY_CLOUDS } from "./config.js?v=22";
-import { clamp, damp, lerp, rng, TAU } from "./util.js?v=22";
-import { Area51 } from "./a51.js?v=22";
-import { audio } from "./audio.js?v=22";
+import { VH, GROUND, CONVOY, CONVOY_CLOUDS } from "./config.js?v=23";
+import { clamp, damp, lerp, rng, TAU } from "./util.js?v=23";
+import { Area51 } from "./a51.js?v=23";
+import { audio } from "./audio.js?v=23";
 
 export class Convoy extends Area51 {
   constructor(game) {
