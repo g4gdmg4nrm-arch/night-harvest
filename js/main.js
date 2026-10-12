@@ -1,10 +1,10 @@
 // Boot, settings, menus, the frame loop and automatic quality scaling.
-import { VH, LEVELS, LOCK_LEVELS } from "./config.js?v=20";
-import { loadImage, clamp } from "./util.js?v=20";
-import { Game } from "./game.js?v=20";
-import { Input } from "./input.js?v=20";
-import { audio } from "./audio.js?v=20";
-import { playInterlude } from "./interlude.js?v=20";
+import { VH, LEVELS, LOCK_LEVELS } from "./config.js?v=21";
+import { loadImage, clamp } from "./util.js?v=21";
+import { Game } from "./game.js?v=21";
+import { Input } from "./input.js?v=21";
+import { audio } from "./audio.js?v=21";
+import { playInterlude } from "./interlude.js?v=21";
 
 const $ = (id) => document.getElementById(id);
 const KEY = "nh-settings-v1";
