@@ -1,8 +1,8 @@
 // Level 4: Highway Rest Stop (design/levels-10.md: "Lightning + first army truck patrol. Move between flashes;
 // trucks mean the hunt has started"). Runs on the farm engine; this file only ADDS dressing, rules and sound.
-import { VH, GROUND, roadY, TUNE } from "./config.js?v=21";
-import { clamp, noise1, TAU } from "./util.js?v=21";
-import { audio } from "./audio.js?v=21";
+import { VH, GROUND, roadY, TUNE } from "./config.js?v=22";
+import { clamp, noise1, TAU } from "./util.js?v=22";
+import { audio } from "./audio.js?v=22";
 
 export const HWY = {
   firstFlash: 7, // seconds before the first flash (plenty of warning: the hush starts 2.5 s before)
