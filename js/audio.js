@@ -1,6 +1,6 @@
 // Night Harvest sound.
 /** Bump with the game cache version so phones refetch sharpened MP3s. */
-const AUDIO_VER = "19";
+const AUDIO_VER = "20";
 
 // Music and effects load by name from audio/<name>.mp3 and audio/sfx/<name>.mp3 when those files
 // exist. Until then every sound has a simple Web Audio placeholder (clearly temporary, not final).
@@ -1082,6 +1082,7 @@ export class AudioDirector {
    */
   stopAll(tau = 0.12) {
     this.gen = (this.gen || 0) + 1; // invalidates sounds still decoding
+    this.ending = null; // v20: a reset ends the ending hush
     if (!this.ctx) return;
     for (const h of [...this.shots]) this.fadeShot(h, tau);
     this.curShock = null;
@@ -1239,6 +1240,7 @@ export class AudioDirector {
   /** Play an effect: a file from audio/sfx/ when present, otherwise the placeholder. */
   async fx(name, opts = {}) {
     if (!(await this.ensureRunning())) return;
+    if (/^ending(Escape|Capture)/.test(name)) this.endingHush(name); // v20: endings play into silence
     const pan = opts.pan || 0;
     const dist = opts.dist || 0; // 0 near .. 1 far
     const gain = (opts.gain == null ? 1 : opts.gain) * (1 - dist * 0.6);
@@ -1253,6 +1255,22 @@ export class AudioDirector {
     }
     const fn = this["_" + name];
     if (fn) fn.call(this, gain, pan, dist);
+  }
+  /** v20: an ending owns the mix: every bed fades out (the coast's own bed is kept for the escape), the base hum/beds stop being driven. */
+  endingHush(name) {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const keep = name === "endingEscapeSpace" ? /^l10CoastAmb$/ : /^$/;
+    for (const [k, b] of Object.entries(this.beds || {})) {
+      if (!b.l || keep.test(k)) continue;
+      try {
+        b.l.g.gain.cancelScheduledValues(now);
+        b.l.g.gain.setTargetAtTime(0, now, name === "endingCaptureSlam" ? 0.05 : 0.6);
+      } catch {
+        /* gone */
+      }
+    }
+    this.ending = name;
   }
   /** Which file (if any) plays this sound; `soft` prefers the *_soft variant. */
   /**
@@ -1785,6 +1803,7 @@ export class AudioDirector {
         b.loading = false;
       });
     }
+    if (this.ending && !(this.ending === "endingEscapeSpace" && name === "l10CoastAmb")) level = 0; // v20: ending silence holds
     if (b.l) b.l.g.gain.setTargetAtTime(level, this.ctx.currentTime, 0.3);
   }
   chirp(t, f, pan) {

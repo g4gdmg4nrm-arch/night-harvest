@@ -5,11 +5,11 @@
 // Searchlight fairness (Game King / Gamer Girl): the ballast hum swells as a beam swings near you; a beam that
 // touches you HESITATES (everything goes quiet, ~1.5 s, about 1.2 s if you're low and feeding) before it can lock.
 // Leave the cone or reach thick cloud in that window and it loses you. Only a locked beam builds exposure.
-import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=22";
-import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=22";
-import { CloudField, cloudSprites } from "./clouds.js?v=22";
-import { Cow } from "./actors.js?v=22";
-import { audio } from "./audio.js?v=22";
+import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=23";
+import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=23";
+import { CloudField, cloudSprites } from "./clouds.js?v=23";
+import { Cow } from "./actors.js?v=23";
+import { audio } from "./audio.js?v=23";
 
 const HIDE = 0.62; // cloud density that hides you from a beam
 const wrapA = (a) => {
@@ -476,6 +476,7 @@ export class Area51 {
     this.applyBounds();
     clearTimeout(this.screamTimer);
     audio.stopAll();
+    this.sirenStung = false;
     if (this.C === A51) g.warmOnce(1); // v20: level 1 pack (mods warm their own level once in their reset)
     audio.warmA51();
     audio.setMusic(cp === 0 ? null : cp === 1 ? "calm" : "dread");
@@ -1126,7 +1127,7 @@ export class Area51 {
       const on = onTarget && cw === cow;
       if (on) {
         if (cw.progress < 0.02) audio.fx("cow", { pan: this.panOf(cw.x), dist: this.distOf(cw.x) });
-        cw.progress = Math.min(1, cw.progress + (dt / this.C.feedSeconds) * c.feedAmt * c.craft.feed * (this.lockedAny ? this.C.lockFeedMul ?? 1 : this.brushAny ? this.C.brushFeedMul ?? 1 : 1)); // v22: a beam on you pins the cow (level 1)
+        cw.progress = Math.min(1, cw.progress + (dt / this.C.feedSeconds) * c.feedAmt * c.craft.feed * (this.lockedAny ? this.C.lockFeedMul ?? 1 : this.brushAny ? this.C.brushFeedMul ?? 1 : this.penNoticed ? this.C.noticedFeedMul ?? 1 : 1)); // v22: a beam on you pins the cow (level 1)
         cw.x = damp(cw.x, m.x, 1.2, dt);
       } else cw.progress = Math.max(0, cw.progress - dt / 2.4);
       // v11 (Game King issue C): Energy only lands when the harvest completes, so a half-drawn animal never
@@ -1257,7 +1258,7 @@ export class Area51 {
       if (this.alarmNext <= 0) {
         const hx = this.C.hangar.x1;
         audio.fx("baseAlarm", { pan: this.panOf(hx), dist: Math.min(0.75, this.distOf(hx)), gain: this.lockedAny ? 0.95 : 0.7 });
-        if (this.C === A51) audio.fx("l1StingSiren", { pan: this.panOf(hx), gain: 0.8 }); // v20
+        if (this.C === A51 && !this.sirenStung) { this.sirenStung = true; audio.fx("l1StingSiren", { pan: this.panOf(hx), gain: 0.8 }); } // v23: once per attempt
         this.alarmNext = this.lockedAny ? 5.2 : this.alert >= 2 ? 6.5 + Math.random() * 2 : 9 + Math.random() * 4;
       }
     }
@@ -1279,11 +1280,11 @@ export class Area51 {
     const humT = play && out ? Math.min(1, 0.06 + Math.max(this.near * 0.5, (this.penHeat || 0) * 0.42) + bp * 0.44) : this.phase === "free" && play ? 0.04 : 0;
     this.hum = damp(this.hum, humT, humT > this.hum ? (this.brushAny ? 6 : 2.2) : 1.5, dt);
     audio.update({
-      breath: play ? (this.occ > 0.5 ? 0.7 : this.phase === "held" ? 0.6 : 0.3) : 0.2,
+      breath: this.C !== A51 ? 0 : play ? (this.occ > 0.5 ? 0.7 : this.phase === "held" ? 0.6 : 0.3) : 0.2,
       hum: play ? smoothstep(280, 420, c.y) * (1 - c.feedAmt * 0.5) * (out ? 1 : 0.4) : 0,
       gust: 0.15,
       insects: 0,
-      windMul: out ? 0.35 : 0,
+      windMul: this.C !== A51 ? 0 : out ? 0.35 : 0, // v23: levels 5-10 keep their own beds (no farm wind / insects / breath)
       muffle: play ? clamp(this.occ * 0.9, 0, 0.9) : 0,
       feed: c.feedAmt,
       car: { gain: 0, speed: 0, pan: truckPan },
