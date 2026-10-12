@@ -5,11 +5,11 @@
 // Searchlight fairness (Game King / Gamer Girl): the ballast hum swells as a beam swings near you; a beam that
 // touches you HESITATES (everything goes quiet, ~1.5 s, about 1.2 s if you're low and feeding) before it can lock.
 // Leave the cone or reach thick cloud in that window and it loses you. Only a locked beam builds exposure.
-import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=21";
-import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=21";
-import { CloudField, cloudSprites } from "./clouds.js?v=21";
-import { Cow } from "./actors.js?v=21";
-import { audio } from "./audio.js?v=21";
+import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=22";
+import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=22";
+import { CloudField, cloudSprites } from "./clouds.js?v=22";
+import { Cow } from "./actors.js?v=22";
+import { audio } from "./audio.js?v=22";
 
 const HIDE = 0.62; // cloud density that hides you from a beam
 const wrapA = (a) => {
@@ -1126,7 +1126,7 @@ export class Area51 {
       const on = onTarget && cw === cow;
       if (on) {
         if (cw.progress < 0.02) audio.fx("cow", { pan: this.panOf(cw.x), dist: this.distOf(cw.x) });
-        cw.progress = Math.min(1, cw.progress + (dt / this.C.feedSeconds) * c.feedAmt * c.craft.feed);
+        cw.progress = Math.min(1, cw.progress + (dt / this.C.feedSeconds) * c.feedAmt * c.craft.feed * (this.lockedAny ? this.C.lockFeedMul ?? 1 : this.brushAny ? this.C.brushFeedMul ?? 1 : 1)); // v22: a beam on you pins the cow (level 1)
         cw.x = damp(cw.x, m.x, 1.2, dt);
       } else cw.progress = Math.max(0, cw.progress - dt / 2.4);
       // v11 (Game King issue C): Energy only lands when the harvest completes, so a half-drawn animal never
