@@ -3,11 +3,11 @@
 // and wire: it's a decoy. Drop low on it and the trap springs: relay clack + l6StingBaitTrap + bulbs stutter for
 // 1.3 s (get out = it misses you), then l6StingFloodlights and the nearby towers snap straight onto you.
 // The real feed is in the rodeo arena under sweeping floodlights. Same rules as Area 51: no combat.
-import { VH, GROUND, RODEO, RODEO_CLOUDS } from "./config.js?v=22";
-import { clamp, lerp, rng, TAU } from "./util.js?v=22";
-import { Cow } from "./actors.js?v=22";
-import { Area51 } from "./a51.js?v=22";
-import { audio } from "./audio.js?v=22";
+import { VH, GROUND, RODEO, RODEO_CLOUDS } from "./config.js?v=23";
+import { clamp, lerp, rng, TAU } from "./util.js?v=23";
+import { Cow } from "./actors.js?v=23";
+import { Area51 } from "./a51.js?v=23";
+import { audio } from "./audio.js?v=23";
 
 const HIDE = 0.62;
 
