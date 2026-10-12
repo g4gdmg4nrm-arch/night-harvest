@@ -1,21 +1,21 @@
 // The first encounter: observe from cloud, descend, feed on the cow, get noticed, escape.
-import { EMP, CRAFTS, VH, WORLD_W, GROUND, HOUSE, COW_X, CLOUD_LAYERS, CREATURE_START, TUNE, LEVELS, levelById, STORM_LAYERS, STORM } from "./config.js?v=22";
-import { Area51 } from "./a51.js?v=22";
-import { Town } from "./town.js?v=22";
-import { Rodeo } from "./rodeo.js?v=22";
-import { Suburb } from "./suburb.js?v=22";
-import { Power } from "./power.js?v=22";
-import { Convoy } from "./convoy.js?v=22";
-import { Coast } from "./coast.js?v=22";
+import { EMP, CRAFTS, VH, WORLD_W, GROUND, HOUSE, COW_X, CLOUD_LAYERS, CREATURE_START, TUNE, LEVELS, levelById, STORM_LAYERS, STORM } from "./config.js?v=23";
+import { Area51 } from "./a51.js?v=23";
+import { Town } from "./town.js?v=23";
+import { Rodeo } from "./rodeo.js?v=23";
+import { Suburb } from "./suburb.js?v=23";
+import { Power } from "./power.js?v=23";
+import { Convoy } from "./convoy.js?v=23";
+import { Coast } from "./coast.js?v=23";
 const MODS = { town: Town, rodeo: Rodeo, suburb: Suburb, power: Power, convoy: Convoy, coast: Coast };
-import { clamp, damp, lerp, makeCanvas, noise1, smoothstep, TAU } from "./util.js?v=22";
-import { Wind } from "./wind.js?v=22";
-import { CloudField, cloudSprites } from "./clouds.js?v=22";
-import { Scene } from "./scene.js?v=22";
-import { Creature, MenuDirector } from "./creature.js?v=22";
-import { Witness, Car, Cow, HerdCow } from "./actors.js?v=22";
-import { audio } from "./audio.js?v=22";
-import { hwyStart, hwyTick, hwyDraw, hwyTruck, HWY } from "./highway.js?v=22";
+import { clamp, damp, lerp, makeCanvas, noise1, smoothstep, TAU } from "./util.js?v=23";
+import { Wind } from "./wind.js?v=23";
+import { CloudField, cloudSprites } from "./clouds.js?v=23";
+import { Scene } from "./scene.js?v=23";
+import { Creature, MenuDirector } from "./creature.js?v=23";
+import { Witness, Car, Cow, HerdCow } from "./actors.js?v=23";
+import { audio } from "./audio.js?v=23";
+import { hwyStart, hwyTick, hwyDraw, hwyTruck, HWY } from "./highway.js?v=23";
 
 export class Game {
   constructor(canvas, trees, settings) {
@@ -171,6 +171,7 @@ export class Game {
     // checkpoint: nothing from the last attempt keeps playing (stings, screams, thunder, chase)
     clearTimeout(this.thunderTimer);
     clearTimeout(this.whineTimer);
+    this.dogArmed = false;
     audio.stopAll();
     if (!menu && !this.L.highway && (this.L.id === 2 || this.L.id === 3)) this.warmOnce(this.L.id); // v20 (level 4 warms in hwyStart)
     if (!menu && this.L.highway) hwyStart(this); // level 4: old music off, warm only level 4's pack
@@ -689,7 +690,7 @@ export class Game {
     if (this.dogCool > 0) return;
     this.dogCool = 9;
     audio.fx("dog", { pan: this.panOf(HOUSE.x + 400), dist: Math.max(dist, this.distOf(HOUSE.x + 400)) });
-    if (this.L.id === 2 && this.mode === "play") audio.fx("l2StingDogLunge", { pan: this.panOf(HOUSE.x + 400), gain: 0.8 }); // v20
+    if (this.L.id === 2 && this.mode === "play" && this.dogArmed) { this.dogArmed = false; audio.fx("l2StingDogLunge", { pan: this.panOf(HOUSE.x + 400), gain: 0.8 }); } // v23: first bark after you are seen
     if (this.mode === "play") this.witness.hear(this.creature.x);
   }
 
@@ -733,6 +734,7 @@ export class Game {
     this.musicHold = 0;
     // a calm witness indoors still reacts: the porch light dies, then snaps on with them in the doorway
     if (who === "car" && this.witness.state === "inside" && !this.witness.scared) (this.porchSeq = 0), (this.porchHush = false);
+    this.dogArmed = true; // v23
     this.onEvent("spotted:" + who);
   }
 
