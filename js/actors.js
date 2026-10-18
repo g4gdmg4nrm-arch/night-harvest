@@ -1,6 +1,7 @@
 // Grounded actors: a witness with planted feet, a car with weight and suspension, and a cow.
-import { GROUND, HOUSE, COW_X, WORLD_W, roadY } from "./config.js?v=23";
-import { clamp, damp, lerp, smooth, TAU, noise1 } from "./util.js?v=23";
+import { GROUND, HOUSE, COW_X, WORLD_W, roadY } from "./config.js?v=24";
+import { clamp, damp, lerp, smooth, TAU, noise1 } from "./util.js?v=24";
+import { drawPerson, styleFor, PERSON } from "./people.js?v=24";
 
 const FOOT_Y = GROUND + 4;
 const L1 = 18;
@@ -299,6 +300,7 @@ export class Witness {
   }
   draw(ctx, warm, flashLight) {
     if (!this.visible) return;
+    // v24: drawn with the shared people renderer (clothes, shading, face), poses still come from the planted-feet IK
     const [fa, fb] = this.feet;
     const spread = Math.abs(fa.x - fb.x);
     const run = clamp((Math.abs(this.v) - 60) / 90, 0, 1);
@@ -307,80 +309,42 @@ export class Witness {
     const hipX = this.x;
     const f = this.face;
     const facing = f >= 0 ? 1 : -1;
-    const w = Math.max(0.35, Math.abs(f)); // body narrows mid-turn
-    const torso = 24;
-    const sx = hipX + Math.sin(this.lean) * torso;
-    const sy = hipY - Math.cos(this.lean) * torso;
-    const rim = warm > 0.02 ? `rgba(255,170,100,${0.5 * warm})` : null;
-    const body = "#07080a";
-    const drawAll = (col, ox) => {
-      ctx.strokeStyle = col;
-      ctx.fillStyle = col;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      // legs (far leg slightly darker is skipped; silhouette)
-      for (const ft of [fa, fb]) {
-        const leg = ik(hipX + ox, hipY, ft.x + ox, ft.y, facing);
-        ctx.lineWidth = 5.6;
-        ctx.beginPath();
-        ctx.moveTo(hipX + ox, hipY);
-        ctx.lineTo(leg.kx, leg.ky);
-        ctx.stroke();
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(leg.kx, leg.ky);
-        ctx.lineTo(leg.fx, leg.fy);
-        ctx.lineTo(leg.fx + facing * 5, leg.fy + 0.5);
-        ctx.stroke();
+    const w = Math.max(0.45, Math.abs(f)); // body narrows mid-turn
+    const sc = L1 / PERSON.T;
+    const ang = (dx, dy) => Math.atan2(dx * facing, dy);
+    // far leg = the one behind (relative to facing) is drawn first
+    const legs = [fa, fb].map((ft) => {
+      const leg = ik(hipX, hipY, ft.x, ft.y, facing);
+      return { x: ft.x, a: [ang(leg.kx - hipX, leg.ky - hipY), ang(leg.fx - leg.kx, leg.fy - leg.ky)] };
+    }).sort((p, q) => (p.x - q.x) * facing);
+    const fear = this.state === "backaway" ? 1 : 0;
+    const sides = [fa, fb];
+    const arms = [];
+    for (let i = 0; i < 2; i++) {
+      const opp = sides[1 - i];
+      const swing = clamp((opp.x - hipX) / 22, -1, 1) * (0.45 + run * 0.6);
+      let ua = Math.PI / 2 - swing * facing * -1 - fear * facing * 0.6;
+      let elbow = 0.25 + run * 1.1 + fear * 0.8;
+      if (i === 0 && this.armUp > 0.01) {
+        ua = lerp(ua, Math.PI / 2 - facing * 2.0, this.armUp);
+        elbow = lerp(elbow, 0.1, this.armUp);
       }
-      // torso
-      ctx.lineWidth = 11.5 * w;
-      ctx.beginPath();
-      ctx.moveTo(hipX + ox, hipY - 1);
-      ctx.lineTo(sx + ox, sy + 2);
-      ctx.stroke();
-      // arms swing opposite to the legs; raised a little when frightened
-      const fear = this.state === "backaway" ? 1 : 0;
-      const sides = [fa, fb];
-      for (let i = 0; i < 2; i++) {
-        const opp = sides[1 - i];
-        const swing = clamp((opp.x - hipX) / 22, -1, 1) * (0.45 + run * 0.6);
-        let ua = Math.PI / 2 - swing * facing * -1 - fear * facing * 0.6;
-        let elbow = 0.25 + run * 1.1 + fear * 0.8;
-        if (i === 0 && this.armUp > 0.01) {
-          ua = lerp(ua, Math.PI / 2 - facing * 2.0, this.armUp);
-          elbow = lerp(elbow, 0.1, this.armUp);
-        }
-        const ex = sx + ox + Math.cos(ua) * 14;
-        const ey = sy + 2 + Math.sin(ua) * 14;
-        const la = ua - elbow * facing;
-        const hx = ex + Math.cos(la) * 13;
-        const hy = ey + Math.sin(la) * 13;
-        ctx.lineWidth = 3.8;
-        ctx.beginPath();
-        ctx.moveTo(sx + ox, sy + 2);
-        ctx.lineTo(ex, ey);
-        ctx.lineTo(hx, hy);
-        ctx.stroke();
-        if (i === 0) this.hand = { x: hx, y: hy };
-      }
-      // head + cap; tilts back when looking up
-      const ha = this.lean - this.headUp * facing;
-      const hx = sx + ox + Math.sin(ha) * 8.6;
-      const hy = sy - Math.cos(ha) * 8.6;
-      ctx.beginPath();
-      ctx.arc(hx, hy, 6, 0, TAU);
-      ctx.fill();
-      ctx.save();
-      ctx.translate(hx, hy);
-      ctx.rotate(ha);
-      ctx.fillRect(-6.2, -7, 12.4, 3.6);
-      ctx.fillRect(facing > 0 ? 3.5 : -10.5, -5, 7, 2); // brim
-      ctx.restore();
-      this.head = { x: hx, y: hy };
-    };
-    if (rim) drawAll(rim, facing * -0.9 * Math.sign(this.x - HOUSE.door + 0.1));
-    drawAll(body, 0);
+      const la = ua - elbow * facing;
+      arms.push([ang(Math.cos(ua), Math.sin(ua)), ang(Math.cos(la), Math.sin(la))]);
+    }
+    if (!this.st) this.st = styleFor("farmer");
+    ctx.save();
+    ctx.translate(hipX, FOOT_Y);
+    ctx.scale(facing * w, 1);
+    const toDoor = Math.sign(HOUSE.door - this.x + 0.1) * facing;
+    const o = drawPerson(ctx, {
+      st: this.st, sc, legs: [legs[0].a, legs[1].a], arms: [arms[1], arms[0]], hipY: (hipY - FOOT_Y) / sc,
+      lean: this.lean * facing, head: this.headUp, light: 0.14 + warm * 0.35, rim: toDoor || -1, warm: warm,
+      face: clamp(this.headUp * 1.6, 0, 1) * (0.4 + (flashLight || 0) * 0.4), sway: 0,
+    });
+    ctx.restore();
+    if (o.hand) this.hand = { x: hipX + o.hand.x * facing * w, y: FOOT_Y + o.hand.y };
+    if (o.head) this.head = { x: hipX + o.head.x * facing * w, y: FOOT_Y + o.head.y };
   }
 }
 

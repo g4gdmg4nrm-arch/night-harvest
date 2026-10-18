@@ -5,11 +5,12 @@
 // Searchlight fairness (Game King / Gamer Girl): the ballast hum swells as a beam swings near you; a beam that
 // touches you HESITATES (everything goes quiet, ~1.5 s, about 1.2 s if you're low and feeding) before it can lock.
 // Leave the cone or reach thick cloud in that window and it loses you. Only a locked beam builds exposure.
-import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=23";
-import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=23";
-import { CloudField, cloudSprites } from "./clouds.js?v=23";
-import { Cow } from "./actors.js?v=23";
-import { audio } from "./audio.js?v=23";
+import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=24";
+import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=24";
+import { CloudField, cloudSprites } from "./clouds.js?v=24";
+import { Cow } from "./actors.js?v=24";
+import { audio } from "./audio.js?v=24";
+import { drawPerson, gaitPose, styleFor, PERSON } from "./people.js?v=24";
 
 const HIDE = 0.62; // cloud density that hides you from a beam
 const wrapA = (a) => {
@@ -78,73 +79,35 @@ export class Figure {
   }
   draw(ctx, rim) {
     if (this.state === "gone") return;
-    const y = GROUND + 4;
+    // v24: shaded, clothed people (people.js) with a real gait, idle breathing, an upturned pale face when they look up
     const run = this.state === "run";
-    const coat = this.kind === "sci";
-    ctx.save();
-    ctx.translate(this.x, y);
-    ctx.scale(this.dir, 1);
+    if (!this.st) this.st = styleFor(this.kind, Math.round(this.x0 / 37));
+    const pose = gaitPose(this.step, 1, run);
+    const br = Math.sin(this.t * 1.7 + this.x0);
     const soldier = this.kind === "soldier";
-    ctx.fillStyle = coat ? "#2a2e33" : soldier ? "#262b22" : "#08090b"; // v13 soldiers: olive, readable against the huts
-    ctx.strokeStyle = ctx.fillStyle;
-    ctx.lineCap = "round";
-    const s1 = Math.sin(this.step);
-    const lean = run ? 0.22 : 0;
-    ctx.lineWidth = 4.2;
-    for (const k of [1, -1]) {
-      const sw = run ? s1 * k * 12 : 0;
-      ctx.beginPath();
-      ctx.moveTo(0, -27);
-      ctx.lineTo(sw * 0.6 + 1, -13 + (run ? Math.abs(sw) * 0.15 : 0));
-      ctx.lineTo(sw, 0);
-      ctx.stroke();
+    let lean = run ? 0.24 : -this.lookUp * 0.09 + 0.012 * br;
+    if (!run) {
+      const shift = 0.03 * Math.sin(this.t * 0.55 + this.x0 * 0.1);
+      pose.legs[0] = [-0.07 + shift, -0.09 + shift];
+      pose.legs[1] = [0.08 + shift, 0.04 + shift];
+      pose.hipY = -Math.max(...pose.legs.map(([a, b]) => Math.cos(a) * PERSON.T + Math.cos(b) * PERSON.S)) + 0.3 * br;
+      const fear = this.lookUp * (soldier ? 0 : 1);
+      pose.arms[0] = [0.06 + 0.02 * br + fear * 0.25, 0.2 + fear * 1.3];
+      pose.arms[1] = this.kind === "guard" ? [0.8, 1.3] : soldier ? [0.32, 0.95] : [-0.04 - 0.02 * br + fear * 0.3, 0.16 + fear * 1.5];
     }
-    ctx.rotate(lean);
-    ctx.beginPath();
-    ctx.moveTo(-6, -50);
-    ctx.lineTo(6, -50);
-    ctx.lineTo(coat ? 9 : 6, coat ? -20 : -26);
-    ctx.lineTo(coat ? -9 : -6, coat ? -20 : -26);
-    ctx.closePath();
-    ctx.fill();
-    ctx.lineWidth = 3.4;
-    for (const k of [1, -1]) {
-      if (k === 1 && this.point > 0.05) {
-        // v13: the arm swings up and points along pointAng (already in the figure's facing frame)
-        const a = lerp(1.35, this.pointAng, this.point);
-        ctx.beginPath();
-        ctx.moveTo(0, -47);
-        ctx.lineTo(Math.cos(a) * 21, -47 + Math.sin(a) * 21);
-        ctx.stroke();
-        continue;
-      }
-      const sw = run ? -s1 * k * 14 : (this.kind === "guard" || soldier) && k === 1 ? 10 : 2;
-      ctx.beginPath();
-      ctx.moveTo(0, -47);
-      ctx.lineTo(sw * 0.7, -36);
-      ctx.lineTo(sw, -27 - (run && k === 1 ? 8 : 0));
-      ctx.stroke();
+    if (this.point > 0.05) {
+      const al = Math.PI / 2 - lerp(1.35, this.pointAng, this.point);
+      pose.arms[1] = [al, al];
     }
     ctx.save();
-    ctx.translate(1, -54);
-    ctx.rotate(-this.lookUp * (soldier ? 0.9 : 0.6));
-    ctx.beginPath();
-    ctx.arc(0, -2, 5, 0, TAU);
-    ctx.fill();
-    if (!coat) {
-      ctx.beginPath();
-      ctx.ellipse(0, -4.5, 7, 3.6, 0, Math.PI, TAU);
-      ctx.fill();
-    }
-    ctx.restore();
-    if (rim > 0.02) {
-      ctx.strokeStyle = coat ? `rgba(200,206,214,${0.5 * rim})` : `rgba(210,170,110,${0.35 * rim})`;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(-6, -50);
-      ctx.lineTo(coat ? -9 : -6, coat ? -20 : -26);
-      ctx.stroke();
-    }
+    ctx.translate(this.x, GROUND + 4);
+    ctx.scale(this.dir, 1);
+    drawPerson(ctx, {
+      st: this.st, legs: pose.legs, arms: pose.arms, hipY: pose.hipY, lean,
+      head: this.lookUp * (soldier ? 0.75 : 0.6) + (run ? -0.15 : 0),
+      light: 0.16 + rim * 0.6, rim: this.dir, warm: this.kind === "civ" ? rim * 0.7 : 0,
+      face: this.lookUp * (0.35 + rim * 0.65), sway: run ? Math.sin(this.step) * 2.2 : 0.4 * br,
+    });
     ctx.restore();
   }
 }
@@ -443,6 +406,7 @@ export class Area51 {
       L.dark = 0;
     }
     this.penHeat = 0;
+    this.awayT = 0; // v24 check-back timer
     this.penNear = 0;
     this.penNoticed = false;
     this.alert = cp === 0 ? 0 : cp === 1 ? 1 : 2; // 0 asleep, 1 alarm (breakout), 2 hunt (after the feed)
@@ -941,6 +905,20 @@ export class Area51 {
     if (feedingLow) this.penHeat += dt * (this.C.penHeatBase + this.C.penHeatFacing * facing) * (c.y > TUNE.dangerLowY ? 1 : 0.6);
     else this.penHeat = Math.max(0, this.penHeat - dt * this.C.penHeatDecay);
     if (feedingLow) this.penTarget = { x: c.x, y: c.y };
+    // v24 (level 1 only, C.awayCheck): the towers "check back". Once every nearby beam has been swung away for
+    // awayCheck seconds, low open feeding draws the nearest one onto the pen (normal brush warning + hum first).
+    // A player who dives the moment the lights swing away still has the whole window; a careless dive that
+    // lands late in a long gap no longer gets a free cow.
+    this.awayT = facing < 0.12 ? (this.awayT || 0) + dt : 0;
+    if (this.C.awayCheck != null && feedingLow && this.awayT >= this.C.awayCheck && !active.some((L) => L.penHunt > 0)) {
+      let best = null;
+      for (const L of active) if ((L.state === "sweep" || L.state === "search") && Math.abs(L.x - c.x) < 1400 && (!best || Math.abs(L.x - c.x) < Math.abs(best.x - c.x))) best = L;
+      if (best) {
+        best.cool = 0; best.paused = 0; best.phase = -Math.PI / 2; best.penHunt = this.C.penHuntTime;
+        this.awayT = 0;
+        this.g.onEvent("a51-check-back");
+      }
+    }
     if (this.penHeat >= 1 && feedingLow) {
       this.penHeat = 1;
       let n = 0;
@@ -1340,6 +1318,8 @@ export class Area51 {
     ctx.setTransform(s, 0, 0, s, 0, 0);
     const nx = -camX * 0.32;
     ctx.drawImage(this.ridgeNear, nx, GROUND - 146);
+    const rural = g.L.kind !== "a51";
+    if (rural && g.scene && g.quality >= 0) g.scene.drawFarTrees(ctx, s, camX, VW, t, g.wind); // v24: wind-bent tree line
     if (g.scene) g.scene.drawFarMist(ctx, s, camX, VW, t, g.wind); // v14: low desert mist
     this.drawGround(ctx, s, camX, VW, t);
     ctx.setTransform(s, 0, 0, s, -camX * s, 0);
@@ -1376,6 +1356,15 @@ export class Area51 {
     this.drawHangarFront(ctx, t);
     this.drawGlows(ctx, t, camX, VW);
     this.drawHaze(ctx, s, camX, VW, t);
+    // v24: heavy foreground grass along the bottom edge (sunk below the field line so it never hides people, cows or beams)
+    if (rural && g.scene) {
+      const sc = g.scene;
+      if (!sc.stripFront) sc.buildFrontStrips();
+      const infl = { x: c.x, s: clamp(c.feedAmt, 0, 1) };
+      if (g.quality >= 1) sc.drawStrips(ctx, s, camX, VW, t, g.wind, infl, sc.stripBack, 1.12, 0.8, -0.05, 92);
+      sc.drawStrips(ctx, s, camX, VW, t, g.wind, infl, sc.stripFront, 1.28, 1.0, -0.15, 102);
+      ctx.setTransform(s, 0, 0, s, 0, 0);
+    }
     if (g.mode === "play" && this.exited) g.drawHiddenCue(ctx, s, VW, this.occ);
     // screen space: alarm pulse, vignette, flash, fades, brightness
     ctx.setTransform(s, 0, 0, s, 0, 0);
