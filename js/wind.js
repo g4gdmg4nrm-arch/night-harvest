@@ -1,6 +1,6 @@
 // One shared wind field drives grass, trees, dust, fog and the wind sound.
 // Positive values lean things to the right (the wind blows left to right).
-import { noise1, noise2, clamp } from "./util.js?v=25";
+import { noise1, noise2, clamp } from "./util.js?v=26";
 
 export class Wind {
   constructor() {
