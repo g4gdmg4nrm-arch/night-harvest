@@ -1,10 +1,10 @@
 // Boot, settings, menus, the frame loop and automatic quality scaling.
-import { VH, LEVELS, LOCK_LEVELS } from "./config.js?v=23";
-import { loadImage, clamp } from "./util.js?v=23";
-import { Game } from "./game.js?v=23";
-import { Input } from "./input.js?v=23";
-import { audio } from "./audio.js?v=23";
-import { playInterlude } from "./interlude.js?v=23";
+import { VH, LEVELS, LOCK_LEVELS } from "./config.js?v=24";
+import { loadImage, clamp } from "./util.js?v=24";
+import { Game } from "./game.js?v=24";
+import { Input } from "./input.js?v=24";
+import { audio } from "./audio.js?v=24";
+import { playInterlude } from "./interlude.js?v=24";
 
 const $ = (id) => document.getElementById(id);
 const KEY = "nh-settings-v1";
@@ -96,11 +96,21 @@ async function boot() {
 
   // ------------------------------------------------------------ quality and sizing
   const Q = { lite: -1, low: 0, medium: 1, high: 2 }; // v17: Lite tier for old iPhones/iPads
-  let q = settings.quality === "auto" ? 1 : Q[settings.quality]; // v13: auto starts at medium (old ternary was 1 either way)
+  // v24: effects tier (q) and resolution are separate. Auto starts at HIGH effects and full device sharpness, and a
+  // phone that truly struggles gives up effects first, then resolution, and only reaches Lite at the very end.
+  //   auto ladder: step 0 high fx @ full DPR (max 3) -> 1 medium fx @ full -> 2 medium @ 2x -> 3 low @ 1.5x
+  //                -> 4 low @ 1x -> 5 Lite @ 0.75x
+  const LADDER = [[2, 3], [1, 3], [1, 2], [0, 1.5], [0, 1], [-1, 0.75]];
+  let step = 0;
+  let q = settings.quality === "auto" ? LADDER[0][0] : Q[settings.quality];
   let autoUps = 0;
   const pixelRatio = () => {
     const d = window.devicePixelRatio || 1;
-    return q >= 2 ? Math.min(d, 2) : q >= 1 ? Math.min(d, 1.5) : q >= 0 ? Math.min(d, 1) * 0.8 : Math.min(d, 1) * 0.6;
+    if (settings.quality === "auto") {
+      const cap = LADDER[step][1];
+      return cap < 1 ? Math.min(d, 1) * cap : Math.min(d, cap);
+    }
+    return q >= 2 ? Math.min(d, 3) : q >= 1 ? Math.min(d, 2) : q >= 0 ? Math.min(d, 1.5) : Math.min(d, 1) * 0.7;
   };
   const resize = () => {
     const w = window.innerWidth;
@@ -119,6 +129,10 @@ async function boot() {
     q = clamp(nq, -1, 2);
     game.setQuality(q);
     resize();
+  };
+  const applyStep = (ns) => {
+    step = clamp(ns, 0, LADDER.length - 1);
+    applyQuality(LADDER[step][0]);
   };
   applyQuality(q);
   window.addEventListener("resize", resize);
@@ -158,6 +172,7 @@ async function boot() {
     if (nq !== settings.quality) {
       settings.quality = nq;
       if (nq !== "auto") applyQuality(Q[nq]);
+      else (autoUps = 0), applyStep(0);
     }
     audio.setLevels({ music: settings.music, amb: settings.amb, sfx: settings.sfx });
     audio.reducedStings = settings.reducedStings;
@@ -418,6 +433,7 @@ async function boot() {
   let acc = 0;
   let accN = 0;
   let goodFor = 0;
+  let badFor = 0;
   const frame = (now) => {
     const raw = now - last;
     last = now;
@@ -436,27 +452,34 @@ async function boot() {
     stats.frames++;
     stats.times.push(raw);
     if (stats.times.length > 600) stats.times.shift();
-    // automatic quality: step down when frames run long, step back up (at most twice) when there's room
+    // automatic quality (v24): only step down on SUSTAINED slow frames (two slow 2 s windows in a row), one ladder
+    // step at a time (effects go before resolution); step back up after ~8 s of clear headroom (at most 3 times)
     if (settings.quality === "auto" && raw < 250) {
       acc += raw;
       accN++;
-      if (accN >= 90 || acc > 1500) { // v16: also decide after 1.5 s, so a 10 fps device reacts in seconds, not 9+
+      if (accN >= 120 || acc > 2000) {
         const avg = acc / accN;
         const wl = stats.work.slice(-accN);
         const wAvg = wl.reduce((a, b) => a + b, 0) / Math.max(1, wl.length);
-        // v13: only step down when our own render work is heavy (iOS Low Power Mode caps rAF at 30 fps,
-        // which used to look like a slow device and dropped quality for nothing)
-        if (avg > 21 && wAvg > 9 && q > -1) {
-          applyQuality(q - 1);
+        // v13 kept: a steady ~30 fps with light render work is iOS Low Power Mode's cap, not a slow device.
+        // Real overload shows as heavy render work, or frames well under 30 fps (GPU-bound canvas hides work time).
+        const slow = avg > 24 && (wAvg > 8 || avg > 40);
+        if (slow) {
+          badFor++;
           goodFor = 0;
-        } else if (avg < 14) {
+          if ((badFor >= 2 || avg > 40) && step < LADDER.length - 1) {
+            applyStep(step + (avg > 90 ? 2 : 1)); // a ~10 fps device skips a rung
+            badFor = 0;
+          }
+        } else if (avg < 15) {
+          badFor = 0;
           goodFor++;
-          if (goodFor >= 4 && q < 2 && autoUps < 2) {
+          if (goodFor >= 4 && step > 0 && autoUps < 3) {
             autoUps++;
-            applyQuality(q + 1);
+            applyStep(step - 1);
             goodFor = 0;
           }
-        } else goodFor = 0;
+        } else (goodFor = 0), (badFor = 0);
         acc = 0;
         accN = 0;
       }
@@ -482,7 +505,7 @@ async function boot() {
     }
   };
   requestAnimationFrame(safeFrame);
-  window.__nh = { game, input, audio, stats, settings, start, toMenu, setPaused, applyQuality, progress };
+  window.__nh = { game, input, audio, stats, settings, start, toMenu, setPaused, applyQuality, applyStep, get qStep() { return step; }, progress };
 }
 
 boot();

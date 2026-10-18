@@ -1,8 +1,8 @@
 // Everything that is not an actor: sky, moon, distant cloud banks, hills, three layers of trees,
 // haze, the farm, the road, fog, the long field grass and the dark foreground grass.
-import { VH, WORLD_W, GROUND, HOUSE, MOON, roadY } from "./config.js?v=23";
-import { clamp, damp, fbm2, lerp, makeCanvas, noise1, noise2, rng, smoothstep, TAU } from "./util.js?v=23";
-import { cloudSprites } from "./clouds.js?v=23";
+import { VH, WORLD_W, GROUND, HOUSE, MOON, roadY } from "./config.js?v=24";
+import { clamp, damp, fbm2, lerp, makeCanvas, noise1, noise2, rng, smoothstep, TAU } from "./util.js?v=24";
+import { cloudSprites } from "./clouds.js?v=24";
 
 function tint(img, color) {
   const c = makeCanvas(img.width, img.height);
@@ -435,6 +435,30 @@ export class Scene {
       ctx.fillStyle = hz;
       ctx.fillRect(0, 430, VW, 140);
     }
+  }
+
+  /** v24: just the far, wind-bent tree line + its haze (levels 5-10 borrow the farm's horizon). */
+  drawFarTrees(ctx, s, camX, VW, t, wind) {
+    const L = this.treeLayers && this.treeLayers[1]; // the darker mid layer reads as a silhouette against the horizon mist
+    if (!L) return;
+    const strips = this.quality >= 2 ? 12 : this.quality >= 1 ? 8 : 5;
+    const span = L.items.length ? L.items[L.items.length - 1].x : 0;
+    const off = span > 0 ? Math.floor((camX * L.p) / (span - 600)) * (span - 600) : 0; // wrap long levels
+    ctx.setTransform(s, 0, 0, s, -(camX * L.p - off) * s, 0);
+    const left = camX * L.p - off - 200;
+    const right = left + VW + 400;
+    for (const it of L.items) {
+      if (it.x < left || it.x > right) continue;
+      const w = wind.sample(it.x / L.p, L.lag, 0.6);
+      drawBent(ctx, it.img, it.x, it.y, it.scale, 0.09 + w * it.amp * 1.8 + 0.02 * Math.sin(t * 1.3 + it.seed * 6), 0.012 + w * 0.012, strips, t, it.seed);
+    }
+    ctx.setTransform(s, 0, 0, s, 0, 0);
+    const hz = ctx.createLinearGradient(0, 430, 0, 570);
+    hz.addColorStop(0, "rgba(46,53,62,0)");
+    hz.addColorStop(0.75, "rgba(46,53,62,0.12)");
+    hz.addColorStop(1, "rgba(40,46,54,0.08)");
+    ctx.fillStyle = hz;
+    ctx.fillRect(0, 430, VW, 140);
   }
 
   /** The farm plane (parallax 1), drawn before the actors. */

@@ -4,10 +4,10 @@
 // over an awake street they see you: gasps and pointing for ~1.4 s (the warning; ~2.8 s if you're high), then the
 // nearest spotlight snaps on and locks. An awake street settles after ~18 s. Lesson: plan the order.
 // Same rules as Area 51: no combat; hide / feed / burst / EMP (an EMP over a street blinds its porches).
-import { VH, GROUND, TOWN, TOWN_CLOUDS } from "./config.js?v=23";
-import { lerp, rng, TAU } from "./util.js?v=23";
-import { Area51, Figure } from "./a51.js?v=23";
-import { audio } from "./audio.js?v=23";
+import { VH, GROUND, TOWN, TOWN_CLOUDS } from "./config.js?v=24";
+import { lerp, rng, TAU } from "./util.js?v=24";
+import { Area51, Figure } from "./a51.js?v=24";
+import { audio } from "./audio.js?v=24";
 
 const HIDE = 0.62;
 
@@ -22,7 +22,7 @@ export class Town extends Area51 {
     this.streets = TOWN.streets.map((S) => {
       const houses = [];
       for (let x = S.x0; x < S.x1 - 60; x += 150 + r() * 40) houses.push({ x, w: 100 + r() * 30, h: 60 + r() * 30, roof: 22 + r() * 14, lit: r() < 0.25 });
-      const people = houses.filter((_, i) => i % 2 === 0).map((h, i) => new Figure(h.x + h.w * 0.5, "sci", i % 2 ? 1 : -1));
+      const people = houses.filter((_, i) => i % 2 === 0).map((h, i) => new Figure(h.x + h.w * 0.5, "civ", i % 2 ? 1 : -1));
       return { ...S, houses, people };
     });
   }
@@ -212,6 +212,29 @@ export class Town extends Area51 {
         ctx.lineTo(h.x + h.w / 2, GROUND - h.h - h.roof);
         ctx.lineTo(h.x + h.w + 8, GROUND - h.h);
         ctx.fill();
+        // v24 detail: weatherboards, moonlit roof edge, chimney, window frames, door and step
+        ctx.strokeStyle = "rgba(120,132,150,0.05)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let y = GROUND - h.h + 7; y < GROUND - 2; y += 6) (ctx.moveTo(h.x + 1, y), ctx.lineTo(h.x + h.w - 1, y));
+        ctx.stroke();
+        if (((h.x / 10) | 0) % 3 === 0) (ctx.fillStyle = "#08090b"), ctx.fillRect(h.x + h.w * 0.68, GROUND - h.h - h.roof * 0.75, 9, h.roof * 0.5);
+        ctx.strokeStyle = "rgba(130,142,160,0.28)";
+        ctx.beginPath();
+        ctx.moveTo(h.x - 8, GROUND - h.h);
+        ctx.lineTo(h.x + h.w / 2, GROUND - h.h - h.roof);
+        ctx.lineTo(h.x + h.w + 8, GROUND - h.h);
+        ctx.stroke();
+        ctx.fillStyle = "rgba(14,17,22,1)";
+        ctx.fillRect(h.x + 15, GROUND - h.h + 15, 18, 14);
+        ctx.fillRect(h.x + h.w - 33, GROUND - h.h + 15, 18, 14);
+        ctx.fillRect(h.x + h.w / 2 - 9, GROUND - 27, 18, 27);
+        ctx.strokeStyle = "rgba(90,100,116,0.22)";
+        ctx.beginPath();
+        for (const wx of [h.x + 16, h.x + h.w - 32]) (ctx.rect(wx, GROUND - h.h + 16, 16, 12), ctx.moveTo(wx + 8, GROUND - h.h + 16), ctx.lineTo(wx + 8, GROUND - h.h + 28));
+        ctx.stroke();
+        ctx.fillStyle = "#0c0d10";
+        ctx.fillRect(h.x + h.w / 2 - 13, GROUND - 2, 26, 4);
         // windows: asleep = a few warm; listening = all dark; awake = all blazing (settling = fading)
         const k = S.state === "awake" ? 1 : S.state === "settling" ? S.holdT / TOWN.wakeFade : S.state === "listening" ? 0 : h.lit ? 0.6 : 0;
         if (k > 0 && !this.empDark(h.x, GROUND - 40)) {
