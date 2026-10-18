@@ -1,10 +1,10 @@
 // Boot, settings, menus, the frame loop and automatic quality scaling.
-import { VH, LEVELS, LOCK_LEVELS } from "./config.js?v=25";
-import { loadImage, clamp } from "./util.js?v=25";
-import { Game } from "./game.js?v=25";
-import { Input } from "./input.js?v=25";
-import { audio } from "./audio.js?v=25";
-import { playInterlude } from "./interlude.js?v=25";
+import { VH, LEVELS, LOCK_LEVELS } from "./config.js?v=26";
+import { loadImage, clamp } from "./util.js?v=26";
+import { Game } from "./game.js?v=26";
+import { Input } from "./input.js?v=26";
+import { audio } from "./audio.js?v=26";
+import { playInterlude } from "./interlude.js?v=26";
 
 const $ = (id) => document.getElementById(id);
 const KEY = "nh-settings-v1";
@@ -272,6 +272,17 @@ async function boot() {
     stopMenuHeart();
     game.startPlay(level);
     setHint();
+    // v26 (Mr Bug Fixit): likely-slow phones start the farm levels (2-4, heaviest scenery) at step 4 (low @ 1x);
+    // leaving the farms puts back the usual step-2 start if the ladder is still where the farm put it
+    if (settings.quality === "auto") {
+      const L = LEVELS.find((l) => l.id === level) || {};
+      if (likelySlow && L.kind === "farm" && step < 4) applyStep(4), (farmBump = true);
+      else if (farmBump && L.kind !== "farm" && step === 4) applyStep(2), (farmBump = false);
+      openN = -1; // the first frame after a start carries the level build time, so the opening check skips it
+      openSlow = 0;
+      acc = 0;
+      accN = 0;
+    }
     $("hud").classList.toggle("a51", game.isMod);
     show("energy", false);
     eVis = null; // v11: re-sync the Energy HUD from scratch on every start
@@ -449,6 +460,9 @@ async function boot() {
   let accN = 0;
   let goodFor = 0;
   let badFor = 0;
+  let openN = 3; // v26: opening frames seen this level (3 = check done)
+  let openSlow = 0;
+  let farmBump = false;
   const frame = (now) => {
     const raw = now - last;
     last = now;
@@ -469,7 +483,21 @@ async function boot() {
     if (stats.times.length > 600) stats.times.shift();
     // automatic quality (v24): only step down on SUSTAINED slow frames (two slow 2 s windows in a row), one ladder
     // step at a time (effects go before resolution); step back up after ~8 s of clear headroom (at most 3 times)
-    if (settings.quality === "auto" && raw < 250) {
+    // v26: if the first 3 frames of a level each take over 150 ms, go straight to Lite instead of waiting for the windows
+    if (settings.quality === "auto" && openN < 3 && game.mode === "play" && !paused) {
+      if (openN >= 0 && raw > 150) openSlow++;
+      openN++;
+      if (openN === 3 && openSlow === 3 && step < LADDER.length - 1) {
+        applyStep(LADDER.length - 1);
+        acc = 0;
+        accN = 0;
+        badFor = 0;
+        firstCheck = false;
+      }
+    }
+    // v26: slow frames now count (was raw < 250, so a 3-4 fps phone took ~4 s to fill the 2 s window);
+    // only gaps over 1 s (tab switch, resume from background) are left out
+    if (settings.quality === "auto" && raw < 1000) {
       acc += raw;
       accN++;
       if (accN >= 120 || acc > 2000) {
