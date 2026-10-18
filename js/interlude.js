@@ -1,7 +1,7 @@
 // v19: short silent between-level scenes (5-10 s) after levels 1-9. Tap / key skips.
 // Craft rises off -> an army truck convoy crosses the dark road -> the next place fades in.
-import { audio } from "./audio.js?v=23";
-import { LEVELS } from "./config.js?v=23";
+import { audio } from "./audio.js?v=24";
+import { LEVELS } from "./config.js?v=24";
 
 const DUR = { 1: 8, 2: 7, 3: 7, 4: 7, 5: 8, 6: 7, 7: 8, 8: 8, 9: 9 }; // seconds, matching clipAfterLn (ALL-LEVELS-SOUND.md)
 
@@ -14,7 +14,7 @@ export function playInterlude(fromLevel, done) {
   cv.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;z-index:50;background:#02040a;touch-action:none";
   document.body.appendChild(cv);
   const ctx = cv.getContext("2d");
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const dpr = Math.min(3, window.devicePixelRatio || 1); // v24: full phone sharpness
   let W = 0, H = 0;
   const size = () => { W = cv.clientWidth; H = cv.clientHeight; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
   size();

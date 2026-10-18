@@ -3,10 +3,10 @@
 // the warning), then films straight up for 4 s. In its view cone and out of thick cloud you're exposed and caught
 // in ~2 s. Feeding near a house wakes its phone ~1.6 s in. A phone that has filmed is spent for 12 s.
 // Same rules as Area 51: no combat; hide / feed / burst / EMP (an EMP kills the phones in range for its duration).
-import { VH, GROUND, SUBURB, SUBURB_CLOUDS, TUNE } from "./config.js?v=23";
-import { rng, TAU } from "./util.js?v=23";
-import { Area51, Figure } from "./a51.js?v=23";
-import { audio } from "./audio.js?v=23";
+import { VH, GROUND, SUBURB, SUBURB_CLOUDS, TUNE } from "./config.js?v=24";
+import { rng, TAU } from "./util.js?v=24";
+import { Area51, Figure } from "./a51.js?v=24";
+import { audio } from "./audio.js?v=24";
 
 const HIDE = 0.62;
 const WIN_Y = GROUND - 62; // bedroom window height
@@ -23,7 +23,7 @@ export class Suburb extends Area51 {
     for (let x = 700; x < 4250; x += 175 + r() * 50) this.houses.push({ x, w: 120 + r() * 30, h: 78 + r() * 20, roof: 26 + r() * 12 });
     this.trees = [];
     for (let i = 0; i < 14; i++) this.trees.push({ x: 700 + r() * 3500, h: 70 + r() * 50, lean: 6 + r() * 10 });
-    this.faces = SUBURB.phones.map((P) => new Figure(P.x, "sci", 1));
+    this.faces = SUBURB.phones.map((P) => new Figure(P.x, "civ", 1));
   }
 
   reset(cp = this.checkpoint) {
