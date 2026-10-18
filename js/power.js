@@ -4,10 +4,10 @@
 // Inside an alerted lamp's lit pool, out of thick cloud, exposure builds and you're caught in ~2 s.
 // Brushing a transformer arcs (l8StingArcFlash): every lamp near it alerts at once. EMP kills lamps in range.
 // Same rules as Area 51: no combat.
-import { VH, GROUND, POWER, POWER_CLOUDS, TUNE } from "./config.js?v=25";
-import { rng, TAU } from "./util.js?v=25";
-import { Area51, Figure } from "./a51.js?v=25";
-import { audio } from "./audio.js?v=25";
+import { VH, GROUND, POWER, POWER_CLOUDS, TUNE } from "./config.js?v=26";
+import { rng, TAU } from "./util.js?v=26";
+import { Area51, Figure } from "./a51.js?v=26";
+import { audio } from "./audio.js?v=26";
 
 const HIDE = 0.62;
 const LY = GROUND - POWER.lampH;
