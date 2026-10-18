@@ -1,10 +1,10 @@
 // Boot, settings, menus, the frame loop and automatic quality scaling.
-import { VH, LEVELS, LOCK_LEVELS } from "./config.js?v=24";
-import { loadImage, clamp } from "./util.js?v=24";
-import { Game } from "./game.js?v=24";
-import { Input } from "./input.js?v=24";
-import { audio } from "./audio.js?v=24";
-import { playInterlude } from "./interlude.js?v=24";
+import { VH, LEVELS, LOCK_LEVELS } from "./config.js?v=25";
+import { loadImage, clamp } from "./util.js?v=25";
+import { Game } from "./game.js?v=25";
+import { Input } from "./input.js?v=25";
+import { audio } from "./audio.js?v=25";
+import { playInterlude } from "./interlude.js?v=25";
 
 const $ = (id) => document.getElementById(id);
 const KEY = "nh-settings-v1";
@@ -99,10 +99,25 @@ async function boot() {
   // v24: effects tier (q) and resolution are separate. Auto starts at HIGH effects and full device sharpness, and a
   // phone that truly struggles gives up effects first, then resolution, and only reaches Lite at the very end.
   //   auto ladder: step 0 high fx @ full DPR (max 3) -> 1 medium fx @ full -> 2 medium @ 2x -> 3 low @ 1.5x
-  //                -> 4 low @ 1x -> 5 Lite @ 0.75x
-  const LADDER = [[2, 3], [1, 3], [1, 2], [0, 1.5], [0, 1], [-1, 0.75]];
-  let step = 0;
-  let q = settings.quality === "auto" ? LADDER[0][0] : Q[settings.quality];
+  //                -> 4 low @ 1x -> 5 Lite @ 0.7x (v25: same resolution as forced Lite)
+  const LADDER = [[2, 3], [1, 3], [1, 2], [0, 1.5], [0, 1], [-1, 0.7]];
+  // v25 (Mr Bug Fixit): likely-slow phones start auto at step 2 (medium @ 2x) so the first seconds aren't choppy.
+  // iOS: judged by OS version only (older than iOS 16 = older hardware); Safari's core count isn't reliable.
+  // Others: few cores or little memory. Newer phones still start at step 0 (High, full sharpness).
+  const likelySlow = (() => {
+    const ua = navigator.userAgent || "";
+    const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    if (ios) {
+      const m = ua.match(/OS (\d+)_/) || ua.match(/Version\/(\d+)/);
+      return !!m && +m[1] < 16;
+    }
+    const hc = navigator.hardwareConcurrency || 8;
+    const dm = navigator.deviceMemory || 8;
+    return (window.devicePixelRatio || 1) >= 2 && isTouch && (hc <= 4 || dm <= 3);
+  })();
+  let step = settings.quality === "auto" && likelySlow ? 2 : 0;
+  let firstCheck = true;
+  let q = settings.quality === "auto" ? LADDER[step][0] : Q[settings.quality];
   let autoUps = 0;
   const pixelRatio = () => {
     const d = window.devicePixelRatio || 1;
@@ -172,7 +187,7 @@ async function boot() {
     if (nq !== settings.quality) {
       settings.quality = nq;
       if (nq !== "auto") applyQuality(Q[nq]);
-      else (autoUps = 0), applyStep(0);
+      else (autoUps = 0), (firstCheck = true), applyStep(likelySlow ? 2 : 0);
     }
     audio.setLevels({ music: settings.music, amb: settings.amb, sfx: settings.sfx });
     audio.reducedStings = settings.reducedStings;
@@ -468,7 +483,8 @@ async function boot() {
           badFor++;
           goodFor = 0;
           if ((badFor >= 2 || avg > 40) && step < LADDER.length - 1) {
-            applyStep(step + (avg > 90 ? 2 : 1)); // a ~10 fps device skips a rung
+            // a ~10 fps device skips a rung; v25: the very first check may skip two (choppy opening seconds)
+            applyStep(step + (avg > 90 ? (firstCheck ? 3 : 2) : avg > 60 && firstCheck ? 2 : 1));
             badFor = 0;
           }
         } else if (avg < 15) {
@@ -482,6 +498,7 @@ async function boot() {
         } else (goodFor = 0), (badFor = 0);
         acc = 0;
         accN = 0;
+        firstCheck = false;
       }
     }
     stats.lastWork = work;
@@ -505,7 +522,7 @@ async function boot() {
     }
   };
   requestAnimationFrame(safeFrame);
-  window.__nh = { game, input, audio, stats, settings, start, toMenu, setPaused, applyQuality, applyStep, get qStep() { return step; }, progress };
+  window.__nh = { game, input, audio, stats, settings, start, toMenu, setPaused, applyQuality, applyStep, get qStep() { return step; }, likelySlow, progress };
 }
 
 boot();
