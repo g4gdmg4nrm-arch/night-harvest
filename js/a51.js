@@ -5,12 +5,12 @@
 // Searchlight fairness (Game King / Gamer Girl): the ballast hum swells as a beam swings near you; a beam that
 // touches you HESITATES (everything goes quiet, ~1.5 s, about 1.2 s if you're low and feeding) before it can lock.
 // Leave the cone or reach thick cloud in that window and it loses you. Only a locked beam builds exposure.
-import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=25";
-import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=25";
-import { CloudField, cloudSprites } from "./clouds.js?v=25";
-import { Cow } from "./actors.js?v=25";
-import { audio } from "./audio.js?v=25";
-import { drawPerson, gaitPose, styleFor, PERSON } from "./people.js?v=25";
+import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=26";
+import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=26";
+import { CloudField, cloudSprites } from "./clouds.js?v=26";
+import { Cow } from "./actors.js?v=26";
+import { audio } from "./audio.js?v=26";
+import { drawPerson, gaitPose, styleFor, PERSON } from "./people.js?v=26";
 
 const HIDE = 0.62; // cloud density that hides you from a beam
 const wrapA = (a) => {
@@ -107,6 +107,7 @@ export class Figure {
       head: this.lookUp * (soldier ? 0.75 : 0.6) + (run ? -0.15 : 0),
       light: 0.16 + rim * 0.6, rim: this.dir, warm: this.kind === "civ" ? rim * 0.7 : 0,
       face: this.lookUp * (0.35 + rim * 0.65), sway: run ? Math.sin(this.step) * 2.2 : 0.4 * br,
+      sc: 1.2, // v26: people ~20% larger so they read at the normal phone zoom
     });
     ctx.restore();
   }
@@ -407,6 +408,11 @@ export class Area51 {
     }
     this.penHeat = 0;
     this.awayT = 0; // v24 check-back timer
+    this.seenFeedT = 0; // v26 careless-dive timer
+    this.seenHunt = false;
+    this.seenUsed = false;
+    this.wasFeedingLow = false;
+    this.feedStartAway = 0;
     this.penNear = 0;
     this.penNoticed = false;
     this.alert = cp === 0 ? 0 : cp === 1 ? 1 : 2; // 0 asleep, 1 alarm (breakout), 2 hunt (after the feed)
@@ -909,15 +915,46 @@ export class Area51 {
     // awayCheck seconds, low open feeding draws the nearest one onto the pen (normal brush warning + hum first).
     // A player who dives the moment the lights swing away still has the whole window; a careless dive that
     // lands late in a long gap no longer gets a free cow.
-    this.awayT = facing < 0.12 ? (this.awayT || 0) + dt : 0;
-    if (this.C.awayCheck != null && feedingLow && this.awayT >= this.C.awayCheck && !active.some((L) => L.penHunt > 0)) {
+    // Note (v26): the timer only runs while every beam is swung away, so a feed that STARTED while a beam was still
+    // turning away finished before it reached 3.6 s; that is why check-back never fired in the v24 free-cow runs.
+    const pullNearest = (ev) => {
       let best = null;
       for (const L of active) if ((L.state === "sweep" || L.state === "search") && Math.abs(L.x - c.x) < 1400 && (!best || Math.abs(L.x - c.x) < Math.abs(best.x - c.x))) best = L;
-      if (best) {
-        best.cool = 0; best.paused = 0; best.phase = -Math.PI / 2; best.penHunt = this.C.penHuntTime;
+      if (!best) return false;
+      if (best.penHunt <= 0) (best.cool = 0), (best.paused = 0), (best.phase = -Math.PI / 2);
+      best.penHunt = Math.max(best.penHunt, this.C.penHuntTime);
+      this.g.onEvent(ev);
+      return true;
+    };
+    this.awayT = facing < 0.12 ? (this.awayT || 0) + dt : 0;
+    if (feedingLow && !this.wasFeedingLow) this.feedStartAway = this.awayT; // how far into a gap this feed began
+    // v26: a feed that begins well into a gap (C.lateFeedAt s after the beams cleared, not on their turn-away) sends
+    // the nearest beam to the pen at once and holds the cow at 95% until it has had its chance (warning hum first)
+    if (feedingLow && !this.wasFeedingLow && this.C.lateFeedAt != null && this.awayT >= this.C.lateFeedAt) this.seenHunt = pullNearest("a51-late-feed");
+    this.wasFeedingLow = feedingLow;
+    if (this.C.awayCheck != null && feedingLow && this.awayT >= this.C.awayCheck && !active.some((L) => L.penHunt > 0)) {
+      if (pullNearest("a51-check-back")) {
         this.awayT = 0;
-        this.g.onEvent("a51-check-back");
+        // v26: a feed begun late in the gap (not on the beams' turn-away) is held until this beam has had its chance
+        if (this.C.seenFeedHunt != null && this.feedStartAway >= 2.0) this.seenHunt = true;
       }
+    }
+    // v26 (level 1 only, C.seenFeedHunt): being low in the open while a beam is still turned your way (the careless
+    // dive, made before the lights have swung clear), then feeding, sends the nearest beam to the pen after seenFeedHunt seconds,
+    // and the cow holds at 95% until that beam has brushed you (warning hum + brush window as always). Careful
+    // players wait until the beams are swung away (penNear < 0.12) before they drop, so this never starts for them.
+    if (this.C.seenFeedHunt != null) {
+      // counts from the moment you drop out of cover low over the base, so diving in before the lights have swung
+      // clear counts even if the feed itself only starts once they have
+      const lowOut = out && !hidden && c.y > TUNE.dangerLowY - 60;
+      if (!lowOut) (this.seenFeedT = 0), (this.seenHunt = false), (this.seenUsed = false);
+      else {
+        // only a beam on its normal sweep counts (a beam already hunting the pen is the consequence, not the cause)
+        if (facing >= 0.12 && !active.some((L) => L.penHunt > 0)) this.seenFeedT = (this.seenFeedT || 0) + dt;
+        if (!this.seenUsed && this.seenFeedT >= this.C.seenFeedHunt && c.feedAmt > 0.05) this.seenUsed = this.seenHunt = pullNearest("a51-seen-feed");
+      }
+      if (this.lockedAny) this.seenHunt = false; // the beam locked on: normal rules from here (a lock pins the cow anyway)
+      if (this.seenHunt && !active.some((L) => L.penHunt > 0)) this.seenHunt = false; // the hunt gave up: never hold the cow forever
     }
     if (this.penHeat >= 1 && feedingLow) {
       this.penHeat = 1;
@@ -1105,7 +1142,7 @@ export class Area51 {
       const on = onTarget && cw === cow;
       if (on) {
         if (cw.progress < 0.02) audio.fx("cow", { pan: this.panOf(cw.x), dist: this.distOf(cw.x) });
-        cw.progress = Math.min(1, cw.progress + (dt / this.C.feedSeconds) * c.feedAmt * c.craft.feed * (this.lockedAny ? this.C.lockFeedMul ?? 1 : this.brushAny ? this.C.brushFeedMul ?? 1 : this.penNoticed ? this.C.noticedFeedMul ?? 1 : 1)); // v22: a beam on you pins the cow (level 1)
+        cw.progress = Math.min(this.seenHunt ? Math.max(0.95, cw.progress) : 1, cw.progress + (dt / this.C.feedSeconds) * c.feedAmt * c.craft.feed * (this.lockedAny ? this.C.lockFeedMul ?? 1 : this.brushAny ? this.C.brushFeedMul ?? 1 : this.penNoticed ? this.C.noticedFeedMul ?? 1 : 1)); // v22: a beam on you pins the cow (level 1)
         cw.x = damp(cw.x, m.x, 1.2, dt);
       } else cw.progress = Math.max(0, cw.progress - dt / 2.4);
       // v11 (Game King issue C): Energy only lands when the harvest completes, so a half-drawn animal never

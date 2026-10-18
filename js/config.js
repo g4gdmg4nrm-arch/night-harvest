@@ -123,6 +123,8 @@ export const A51 = {
   penHeatDecay: 0.35, // per second once you stop feeding / get into cloud
   penHuntRange: 0.16, // a hunting beam sweeps this tight (radians) around you
   penHuntTime: 7, // seconds the towers keep hunting the pen after they notice
+  lateFeedAt: 2.2, // v26: a feed starting this long after every beam swung away is hunted at once (careful dives start ~1.8 s in)
+  seenFeedHunt: 0.2, // v26: s low in the open (feeding) with a beam still turned your way before the nearest beam is sent to the pen
   awayCheck: 3.6, // v24: seconds of "every beam swung away" before low open feeding draws one back (closes the careless free cow)
   // Energy (0..1): feeding fills it, bursts and hard climbs spend a little
   energyStart: 0.12,
@@ -195,7 +197,7 @@ export const CRAFTS = {
 // Plan the order: feed on the far street first, or feed near and wait out the far street.
 export const TOWN = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, // level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, // level 1 only
   W: 5000,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 }, // no hangar
   start: { x: 320, y: 170 },
@@ -246,7 +248,7 @@ export const TOWN_CLOUDS = [
 // decoy. Drop on it and the trap springs: relay clack + bulbs stutter (1.3 s warning), then the floodlights snap on.
 export const RODEO = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, // level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, // level 1 only
   W: 5200,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 }, // no hangar
   start: { x: 320, y: 170 },
@@ -301,7 +303,7 @@ export const RODEO_CLOUDS = [
 // dead for a while. Lesson: dark houses aren't safe; watch the windows, feed when the near phones are spent.
 export const SUBURB = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, // level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, // level 1 only
   W: 5000,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 },
   start: { x: 320, y: 170 },
@@ -354,7 +356,7 @@ export const SUBURB_CLOUDS = [
 // Lesson: pick the dark path (high, through cloud, between the lamps).
 export const POWER = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, // level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, // level 1 only
   W: 5800,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 },
   start: { x: 320, y: 170 },
@@ -400,7 +402,7 @@ export const POWER_CLOUDS = [
 // (l9StingConvoyTurns). Three paddocks below the ridge. You need Energy >= exitEnergy to leave: bank 2 feeds.
 export const CONVOY = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, // level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, // level 1 only
   W: 6000,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 },
   start: { x: 320, y: 170 },
@@ -457,7 +459,7 @@ export const CONVOY_CLOUDS = [
 // sea bank. Energy at the shore decides the ending: >= escapeEnergy = escape to space, less = captured.
 export const COAST = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, // level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, // level 1 only
   W: 5600,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 }, // no hangar on this level
   start: { x: 300, y: 170 },
