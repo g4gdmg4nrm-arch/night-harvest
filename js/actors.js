@@ -1,7 +1,7 @@
 // Grounded actors: a witness with planted feet, a car with weight and suspension, and a cow.
-import { GROUND, HOUSE, COW_X, WORLD_W, roadY } from "./config.js?v=27";
-import { clamp, damp, lerp, smooth, TAU, noise1 } from "./util.js?v=27";
-import { drawPerson, styleFor, PERSON } from "./people.js?v=27";
+import { GROUND, HOUSE, COW_X, WORLD_W, roadY } from "./config.js?v=28";
+import { clamp, damp, lerp, smooth, TAU, noise1 } from "./util.js?v=28";
+import { drawPerson, styleFor, PERSON } from "./people.js?v=28";
 
 const FOOT_Y = GROUND + 4;
 const L1 = 18;
