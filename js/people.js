@@ -2,7 +2,27 @@
 // dark in the night: a cold moon rim on one side, an optional warm rim (doorway / torch), a soft contact shadow.
 // Local frame: facing +x, feet on y = 0, about 60 units tall at scale 1. Angles are from straight down,
 // positive = toward the facing direction.
-import { clamp, TAU } from "./util.js?v=27";
+import { clamp, TAU } from "./util.js?v=28";
+import { audio } from "./audio.js?v=28";
+
+// v28 voice-line hook: a person who spots the UFO (starts looking up, pointing or running) calls
+// audio.say("spot-<kind>", { kind, x, why }) for Gamer Girl's clips. A guarded no-op until audio.say exists, so it
+// never throws or plays anything by itself. One line at a time across all people (VOICE_GAP ms apart).
+// Kinds: sci, soldier, guard, farmer, civ. why: "look" | "point" | "run".
+const VOICE_GAP = 3500;
+let voiceLast = -1e9;
+export function personSpotted(fig, why = "look") {
+  try {
+    if (typeof audio.say !== "function") return false;
+    const now = performance.now();
+    if (now - voiceLast < VOICE_GAP) return false;
+    voiceLast = now;
+    audio.say("spot-" + fig.kind, { kind: fig.kind, x: fig.x, why });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const T = 14, S = 14.5, TORSO = 23, UA = 11, FA = 10.5; // thigh, shin, torso, upper arm, forearm
 export const PERSON = { T, S, TORSO };
