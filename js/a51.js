@@ -5,12 +5,12 @@
 // Searchlight fairness (Game King / Gamer Girl): the ballast hum swells as a beam swings near you; a beam that
 // touches you HESITATES (everything goes quiet, ~1.5 s, about 1.2 s if you're low and feeding) before it can lock.
 // Leave the cone or reach thick cloud in that window and it loses you. Only a locked beam builds exposure.
-import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=26";
-import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=26";
-import { CloudField, cloudSprites } from "./clouds.js?v=26";
-import { Cow } from "./actors.js?v=26";
-import { audio } from "./audio.js?v=26";
-import { drawPerson, gaitPose, styleFor, PERSON } from "./people.js?v=26";
+import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=27";
+import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=27";
+import { CloudField, cloudSprites } from "./clouds.js?v=27";
+import { Cow } from "./actors.js?v=27";
+import { audio } from "./audio.js?v=27";
+import { drawPerson, gaitPose, styleFor, PERSON } from "./people.js?v=27";
 
 const HIDE = 0.62; // cloud density that hides you from a beam
 const wrapA = (a) => {
