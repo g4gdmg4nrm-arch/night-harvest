@@ -1,10 +1,10 @@
 // Boot, settings, menus, the frame loop and automatic quality scaling.
-import { VH, LEVELS, LOCK_LEVELS } from "./config.js?v=27";
-import { loadImage, clamp } from "./util.js?v=27";
-import { Game } from "./game.js?v=27";
-import { Input } from "./input.js?v=27";
-import { audio } from "./audio.js?v=27";
-import { playInterlude } from "./interlude.js?v=27";
+import { VH, LEVELS, LOCK_LEVELS, TUNE } from "./config.js?v=28";
+import { loadImage, clamp } from "./util.js?v=28";
+import { Game } from "./game.js?v=28";
+import { Input } from "./input.js?v=28";
+import { audio } from "./audio.js?v=28";
+import { playInterlude } from "./interlude.js?v=28";
 
 const $ = (id) => document.getElementById(id);
 const KEY = "nh-settings-v1";
@@ -27,12 +27,20 @@ function loadSettings() {
   }
 }
 const PKEY = "nh-progress-v1";
+const TKEY = "nh-tut-v1"; // v28: "done" once the level 1 tutorial is finished or skipped
+const tutDone = () => { try { return localStorage.getItem(TKEY) === "done"; } catch { return false; } };
+const setTutDone = (on) => { try { on ? localStorage.setItem(TKEY, "done") : localStorage.removeItem(TKEY); } catch { /* private mode */ } };
+const ROMAN = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+const starStr = (n) => "★".repeat(n) + "☆".repeat(3 - n);
 function loadProgress() {
   try {
     const p = JSON.parse(localStorage.getItem(PKEY) || "{}");
-    return { beaten: Array.isArray(p.beaten) ? p.beaten.filter((n) => typeof n === "number") : [] };
+    // v28: best stars per level ({ "1": 0..3 }); anything else is ignored
+    const stars = {};
+    if (p.stars && typeof p.stars === "object") for (const k of Object.keys(p.stars)) if (/^\d+$/.test(k) && [0, 1, 2, 3].includes(p.stars[k])) stars[k] = p.stars[k];
+    return { beaten: Array.isArray(p.beaten) ? p.beaten.filter((n) => typeof n === "number") : [], stars };
   } catch {
-    return { beaten: [] };
+    return { beaten: [], stars: {} };
   }
 }
 function saveProgress(p) {
@@ -227,6 +235,8 @@ async function boot() {
       const open = unlocked(L.id);
       b.classList.toggle("locked", !open);
       $("lvlTag" + L.id).textContent = progress.beaten.includes(L.id) ? "taken" : !open ? (L.wip ? "soon" : "locked") : L.id === 1 ? "new" : "";
+      const st = $("lvlStars" + L.id);
+      if (st) st.textContent = open && progress.stars[L.id] ? starStr(progress.stars[L.id]) : ""; // v28
     }
   };
   const touchy = () => input.touchUsed || isTouch;
@@ -257,7 +267,7 @@ async function boot() {
       : "WASD / arrows drift  ·  hold SPACE to feed  ·  SHIFT burst  ·  P pause";
   };
   let level = 1;
-  const start = (lv) => {
+  const start = (lv, opts = {}) => {
     if (typeof lv === "number") level = lv;
     show("levels", false);
     show("menu", false);
@@ -287,8 +297,18 @@ async function boot() {
     show("energy", false);
     eVis = null; // v11: re-sync the Energy HUD from scratch on every start
     show("btnNext", false);
+    // v28: per-attempt tracker (checkpoint restarts don't reset it), Get Ready card, level 1 tutorial
+    run.t = 0;
+    run.fails = 0;
+    run.locks = 0;
+    run.won = false;
+    tutBegin();
+    showReady(opts.short);
   };
   const toMenu = () => {
+    endReady(true);
+    tutHide();
+    tut = null;
     menuScareDone = false;
     stopMenuHeart();
     // Re-arm first-tap scare for the next visit to the menu
@@ -318,7 +338,7 @@ async function boot() {
     audio.setPaused(p);
   };
   $("btnStart").onclick = () => { game.carryFrom = null; start(1); };
-  $("btnAgain").onclick = () => start(level);
+  $("btnAgain").onclick = () => start(level, { short: true });
   $("btnNext").onclick = () => {
     if (!unlocked(level + 1)) return;
     const from = level;
@@ -349,6 +369,9 @@ async function boot() {
   const stats = { frames: 0, times: [], work: [], log: [], q: () => q };
   game.onEvent = (e) => {
     stats.log.push([Math.round(game.gt * 10) / 10, e]);
+    if (e === "fail") run.fails++;
+    if (e.startsWith("spotted")) run.locks++;
+    tutEvent(e);
     if (e === "fail") {
       $("seen").textContent = game.isMod ? "Caught." : "Seen.";
       show("seen", true);
@@ -365,7 +388,27 @@ async function boot() {
       input.enabled = false;
       const lv = game.level;
       if (!progress.beaten.includes(lv)) progress.beaten.push(lv), saveProgress(progress);
+      // v28 stars: 1 finished, 2 never caught, 3 never caught and within par; level 10's captured ending caps at 1
+      const LL = LEVELS.find((l) => l.id === lv) || {};
+      const captured = LL.kind === "coast" && game.coast && game.coast.ending === "captured";
+      let stars = 1;
+      if (!captured && run.fails === 0) stars = LL.par && run.t <= LL.par ? 3 : 2;
+      const prevStars = progress.stars[lv] || 0;
+      if (stars > prevStars) (progress.stars[lv] = stars), saveProgress(progress);
+      const secs = Math.round(run.t);
+      const nf = run.fails;
+      let miss = captured
+        ? "Taken. Space needs more Energy."
+        : nf > 0
+        ? `Caught ${nf === 1 ? "once" : nf === 2 ? "twice" : nf + " times"}.`
+        : stars < 3
+        ? `Too slow: ${secs} s / par ${LL.par} s.`
+        : `${secs} s.${run.locks === 0 ? " Unseen." : ""}`;
+      if (stars > prevStars && prevStars > 0) miss += "  Best.";
+      run.won = true;
+      run.result = { stars, secs, fails: nf, prev: prevStars }; // read by tests
       setTimeout(() => {
+        if (game.mode !== "win" || game.level !== lv) return; // v28: left for the menu / another level in the meantime
         const L = LEVELS.find((l) => l.id === lv) || {};
         const end = L.kind === "coast" && game.coast ? game.coast.ending : null;
         const T = { a51: "Out.", town: "Quiet again.", rodeo: "Not fooled.", suburb: "No signal.", power: "Static.", convoy: "Through." };
@@ -392,6 +435,12 @@ async function boot() {
               ? "The storm closes over the farm. Nothing saw it leave."
               : "The night closes over the farm.";
         show("btnNext", !end && unlocked(lv + 1));
+        const sEl = $("endStars").children;
+        for (let i = 0; i < 3; i++) {
+          sEl[i].classList.remove("on");
+          if (i < stars) setTimeout(() => sEl[i].classList.add("on"), 400 + i * 300);
+        }
+        $("endMiss").textContent = miss;
         show("hud", false);
         show("end", true);
       }, 3200);
@@ -454,6 +503,146 @@ async function boot() {
     }
   };
 
+  // ------------------------------------------------------------ v28 Get Ready card
+  let ready = null; // { t, min, changed, lastStep, stable, skip }
+  const showReady = (short) => {
+    const L = LEVELS.find((l) => l.id === level) || {};
+    $("readyNum").textContent = ROMAN[level] || "";
+    $("readyName").textContent = L.name || "";
+    $("readyHook").textContent = short ? "" : L.hook || "";
+    const el = $("ready");
+    el.style.transition = "none"; // appear at full black at once (no fade-in from the last card's fade-out)
+    el.classList.remove("fade");
+    show("ready", true);
+    void el.offsetWidth;
+    el.style.transition = "";
+    input.enabled = false;
+    input.releaseAll();
+    ready = { t: 0, t0: performance.now(), last: performance.now(), min: short ? 0.8 : 1.5, changed: false, lastStep: step, stable: 0, skip: false, win0: winCount };
+  };
+  const endReady = (instant) => {
+    if (!ready && !instant) return;
+    const was = !!ready;
+    ready = null;
+    const el = $("ready");
+    if (instant) return show("ready", false);
+    el.classList.add("fade");
+    setTimeout(() => !ready && show("ready", false), 480);
+    if (was && game.mode === "play" && !paused) (input.enabled = true), input.releaseAll();
+  };
+  const tickReady = () => {
+    const R = ready;
+    const now = performance.now(); // wall clock: slow frames must not shorten the card
+    const rdt = (now - R.last) / 1000;
+    R.last = now;
+    R.t = (now - R.t0) / 1000;
+    if (step !== R.lastStep) (R.lastStep = step), (R.changed = true), (R.stable = 0);
+    else R.stable += rdt;
+    // a quality change during the card holds it until the ladder has settled for 0.5 s (cap 2.5 s)
+    // on auto, a device that looks slow during the card (avg frame > 24 ms) also waits for the first 2 s quality
+    // window to be judged, so the choppy opening and any drop to Lite happen behind the card (same 2.5 s cap)
+    const looksSlow = settings.quality === "auto" && accN >= 4 && acc / accN > 24;
+    const judged = !looksSlow || winCount > R.win0;
+    const settled = ((!R.changed || R.stable >= 0.5) && judged) || R.t >= 2.5;
+    if ((R.t >= R.min && settled) || (R.skip && R.t >= 0.6)) endReady();
+  };
+  const readySkip = () => { if (ready && (performance.now() - ready.t0) / 1000 >= 0.6) endReady(); else if (ready) ready.skip = true; };
+  $("ready").addEventListener("pointerdown", (e) => { e.preventDefault(); readySkip(); });
+  window.addEventListener("keydown", (e) => { if (ready && !e.repeat) readySkip(); });
+
+  // ------------------------------------------------------------ v28 level 1 tutorial (state-driven, never pauses)
+  let tut = null; // { step, want, shown, hidT, harvT, brushed, t }
+  const TUT = {
+    1: () => "They're looking for you. Get into the cloud.",
+    2: () => "The pen. Wait for the lights to turn away… then drop.",
+    3: () => (touchy() ? "Hold FEED. Don't let go." : "Hold SPACE. Don't let go."),
+    4: () => (touchy() ? "A light has you. EMP. Kill it." : "A light has you. EMP. Kill it. Press Q."),
+    5: () => "Now run. Past the fence. Into the dark.",
+  };
+  const tutShow = (n) => {
+    tut.shown = n;
+    tut.t = 0;
+    $("tutText").textContent = TUT[n]();
+    $("tut").classList.toggle("flick", n === 4);
+    $("tut").classList.remove("off");
+  };
+  const tutHide = () => $("tut").classList.add("off");
+  const tutBegin = () => {
+    tutHide();
+    tut = level === 1 && !tutDone() ? { step: 1, shown: 0, armed: false, hidT: 0, harvT: -1, brushed: false, t: 0 } : null;
+  };
+  const tutNext = () => {
+    tutHide();
+    tut.shown = 0;
+    tut.step++;
+    if (tut.step > 5) tutFinish();
+  };
+  const tutFinish = () => {
+    tutHide();
+    tut = null;
+    setTutDone(true);
+  };
+  const tutEvent = (e) => {
+    if (!tut) return;
+    if (e === "a51-out") tut.armed = true;
+    if (e === "harvested") tut.harvT = 0;
+    if (e === "a51-brush") tut.brushed = true;
+    if (e === "emp" && tut.step === 4) tutNext();
+    if (e === "win") tutFinish();
+    if (e === "fail") tutHide(), (tut.shown = 0); // keep the step; it re-shows after the restart
+  };
+  const tutTick = (dt) => {
+    if (!tut || game.mode !== "play" || !game.isMod || game.level !== 1) return;
+    const a = game.mod;
+    const c = game.creature;
+    const C = a.C || {};
+    if (tut.harvT >= 0) tut.harvT += dt;
+    tut.t += dt;
+    const hidden = (a.occ || 0) >= 0.62;
+    const cow = a.feedTarget ? a.feedTarget() : null;
+    const nearCow = !!cow && Math.abs(c.x - cow.x) < TUNE.feedRangeX + 80; // feedTarget() is just the nearest cow
+    // skip ahead if the player is already past a step (e.g. drops straight onto the cow without hiding first)
+    if (tut.step <= 2 && tut.armed && nearCow && c.y > TUNE.dangerLowY) (tut.step = 3), tutHide(), (tut.shown = 0);
+    if (tut.step === 3 && !tut.shown && a.harvested) tut.step = 4;
+    const s = tut.step;
+    if (!tut.shown) {
+      // when each prompt appears
+      const pen = C.pen ? C.pen.x0 : 2700;
+      const want =
+        s === 1 ? tut.armed
+        : s === 2 ? hidden && Math.abs(c.x - pen) < 500
+        : s === 3 ? nearCow
+        : s === 4 ? (tut.brushed || tut.harvT >= 3) && !(game.empCool > 0)
+        : s === 5 ? !!a.harvested && a.energy >= (C.energyMinExit || 0)
+        : false;
+      if (want) tutShow(s);
+    } else {
+      // when it goes away
+      if (s === 1) tut.hidT = hidden ? tut.hidT + dt : 0;
+      const done =
+        s === 1 ? tut.hidT >= 1
+        : s === 2 ? c.y > TUNE.dangerLowY
+        : s === 3 ? !!a.harvested
+        : s === 4 ? tut.t >= 6
+        : s === 5 ? c.x > (C.fence || 5760)
+        : true;
+      if (done) tutNext();
+    }
+    if (tut && tut.shown) $("hint").style.opacity = "0"; // never stack with the level hint
+  };
+  $("tutSkip").addEventListener("pointerdown", (e) => { e.stopPropagation(); e.preventDefault(); if (tut) tutFinish(); });
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && tut && tut.shown) {
+      input.pauseQueued = false; // Esc skips the tutorial instead of pausing while a prompt shows
+      tutFinish();
+    }
+  });
+  $("btnTutAgain").onclick = () => {
+    setTutDone(false);
+    $("btnTutAgain").textContent = "Tutorial will show on level 1";
+  };
+  const run = { t: 0, fails: 0, locks: 0, won: false, result: null };
+
   // ------------------------------------------------------------ loop
   let last = performance.now();
   let acc = 0;
@@ -463,16 +652,26 @@ async function boot() {
   let openN = 3; // v26: opening frames seen this level (3 = check done)
   let openSlow = 0;
   let farmBump = false;
+  let winCount = 0; // v28: auto-quality windows judged so far (the Get Ready card waits for one on slow devices)
   const frame = (now) => {
     const raw = now - last;
     last = now;
     const dt = Math.min(raw / 1000, 1 / 20);
-    if (input.takePause()) setPaused(!paused);
-    if (input.takeRestart() && game.mode === "play") game.resetEncounter(false);
-    if (!paused) {
+    if (ready) {
+      // v28 Get Ready card: the world is frozen (no update), but it renders and the quality checks below keep running
+      input.takePause();
+      input.takeRestart();
+      tickReady();
+    } else {
+      if (input.takePause()) setPaused(!paused);
+      if (input.takeRestart() && game.mode === "play") game.resetEncounter(false);
+    }
+    if (!paused && !ready) {
       game.update(dt, input);
+      if (game.mode === "play" && !run.won) run.t += dt;
       if (game.isMod && game.mode !== "menu") syncA51(dt);
       else if (game.mode === "play" && game.hintT > 12) $("hint").style.opacity = "0";
+      tutTick(dt);
     }
     syncEmp();
     const t0 = performance.now();
@@ -527,6 +726,7 @@ async function boot() {
         acc = 0;
         accN = 0;
         firstCheck = false;
+        winCount++;
       }
     }
     stats.lastWork = work;
@@ -550,7 +750,7 @@ async function boot() {
     }
   };
   requestAnimationFrame(safeFrame);
-  window.__nh = { game, input, audio, stats, settings, start, toMenu, setPaused, applyQuality, applyStep, get qStep() { return step; }, likelySlow, progress };
+  window.__nh = { game, input, audio, stats, settings, start, toMenu, setPaused, applyQuality, applyStep, get qStep() { return step; }, likelySlow, progress, run, get ready() { return ready; }, get tut() { return tut; } };
 }
 
 boot();

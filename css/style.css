@@ -83,7 +83,7 @@ body.touch #touch { display: block; }
 #levels .levelList { display: flex; flex-direction: column; gap: 4px; margin-bottom: 3vh; }
 #levels button { font: inherit; background: transparent; border: none; color: rgba(196,204,214,0.78);
   letter-spacing: 0.32em; text-transform: uppercase; font-size: 14px; text-shadow: 0 0 18px rgba(0,0,0,0.9); cursor: pointer; }
-#levels button.lvl { display: grid; grid-template-columns: 3.2em 14em 6em; align-items: baseline; text-align: left; padding: 10px 8px; min-height: 44px; }
+#levels button.lvl { display: grid; grid-template-columns: 3.2em 14em 6em 4.2em; align-items: baseline; text-align: left; padding: 10px 8px; min-height: 44px; }
 #levels .num { opacity: 0.45; }
 #levels .tag { font-size: 10px; letter-spacing: 0.3em; opacity: 0.55; text-align: right; }
 #levels button:hover, #levels button:focus-visible { color: #eef2f6; outline: none; }
@@ -126,11 +126,35 @@ body.touch #empStat { display: none; }
 /* v19: ten level buttons on small phones (iPhone SE 375x667 portrait / 667x375 landscape) */
 #levels { overflow-y: auto; }
 @media (max-width: 420px) {
-  #levels button.lvl { grid-template-columns: 3.4em minmax(0, 1fr) 4.2em; width: min(92vw, 23em); padding: 6px 6px; min-height: 40px; }
+  #levels button.lvl { grid-template-columns: 3.4em minmax(0, 1fr) 4.2em 3.4em; width: min(92vw, 23em); padding: 6px 6px; min-height: 40px; }
   #levels .levelList { gap: 2px; margin-bottom: 2vh; }
 }
 @media (max-height: 500px) {
   #levels .levelList { display: grid; grid-template-columns: repeat(2, auto); grid-auto-flow: column; grid-template-rows: repeat(5, auto); column-gap: 18px; row-gap: 0; margin-bottom: 1.5vh; }
-  #levels button.lvl { grid-template-columns: 3.4em 12.5em 3.6em; padding: 4px 6px; min-height: 40px; font-size: 0.86em; letter-spacing: 0.18em; }
+  #levels button.lvl { grid-template-columns: 3em 11.6em 3.6em 3.2em; padding: 4px 6px; min-height: 40px; font-size: 0.86em; letter-spacing: 0.18em; }
   #levels h2 { margin: 0 0 6px; }
 }
+
+/* v28: stars, Get Ready card, level 1 tutorial */
+#levels .stars { font-size: 11px; letter-spacing: 0.15em; color: rgba(176, 196, 184, 0.7); text-align: right; }
+#endStars { display: flex; gap: 0.5em; font-size: clamp(20px, 5vh, 30px); margin: 0.2em 0 0.1em; }
+#endStars span { color: transparent; -webkit-text-stroke: 1px rgba(170, 186, 178, 0.45); transition: color 0.5s, text-shadow 0.5s; }
+#endStars span.on { color: rgba(186, 206, 194, 0.85); -webkit-text-stroke: 0; text-shadow: 0 0 14px rgba(150, 180, 165, 0.35); }
+#endStars.none { display: none; }
+#endMiss { margin-top: 0.2em; opacity: 0.7; letter-spacing: 0.2em; }
+#ready { position: absolute; inset: 0; background: #020305; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: rgba(200, 210, 218, 0.85); text-align: center; z-index: 30; opacity: 1; transition: opacity 0.45s; pointer-events: auto; }
+#ready.fade { opacity: 0; pointer-events: none; }
+#readyNum { font-size: clamp(14px, 3.4vh, 20px); letter-spacing: 0.6em; opacity: 0.5; }
+#readyName { font-size: clamp(22px, 6vh, 40px); letter-spacing: 0.4em; text-transform: uppercase; margin: 0.35em 0 0.6em; }
+#readyHook { font-size: clamp(12px, 2.8vh, 16px); letter-spacing: 0.12em; opacity: 0.6; max-width: 80%; font-style: italic; }
+#tut { position: absolute; left: 50%; transform: translateX(-50%); bottom: max(18%, calc(env(safe-area-inset-bottom) + 100px)); max-width: min(72%, 560px);
+  text-align: center; font-variant: small-caps; letter-spacing: 0.16em; font-size: 14px; color: rgba(176, 200, 184, 0.8);
+  text-shadow: 0 0 12px rgba(0, 0, 0, 0.95); transition: opacity 0.4s; opacity: 1; pointer-events: none; }
+#tut.off { opacity: 0; }
+#tut.flick #tutText { animation: tutFlick 2.6s infinite; }
+@keyframes tutFlick { 0%, 100% { opacity: 1; } 47% { opacity: 1; } 49% { opacity: 0.35; } 51% { opacity: 0.9; } 53% { opacity: 0.5; } 56% { opacity: 1; } }
+#tutSkip { pointer-events: auto; display: block; margin: 0.6em auto 0; background: transparent; border: none; font: inherit; font-size: 10px;
+  letter-spacing: 0.3em; color: rgba(176, 190, 184, 0.45); cursor: pointer; padding: 6px 10px; }
+#tut.off #tutSkip { pointer-events: none; }
+@media (max-width: 900px) { #tut { font-size: 12px; } }
