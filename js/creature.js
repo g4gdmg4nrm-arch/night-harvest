@@ -1,7 +1,7 @@
-// The player: a matte bowl/saucer craft (Josh's refs). Smooth charcoal, dark underside hole,
+// The player: a bowl/saucer craft (Josh's refs). v27: polished mirror chrome (dark night reflections), dark underside hole,
 // no windows/lights/seams. Muscular motion: slow glides, still hover, sudden swoops and bursts.
-import { WORLD_W, GROUND, TUNE } from "./config.js?v=26";
-import { clamp, damp, lerp, TAU, noise1 } from "./util.js?v=26";
+import { WORLD_W, GROUND, TUNE } from "./config.js?v=27";
+import { clamp, damp, lerp, TAU, noise1 } from "./util.js?v=27";
 
 export class Creature {
   constructor() {
@@ -90,8 +90,9 @@ export class Creature {
       this.swoop = damp(this.swoop, 0, 1.8, dt);
       if (this.swoopT > 1.1) this.swoop = 0;
     }
-    const max = (this.feeding ? 24 : 185 * this.craft.speed) * this.power;
-    const rate = (this.feeding ? 4.5 : this.sinceBurst < 0.5 ? 1.6 : 2.1) * this.craft.accel;
+    // v27 (Josh): ~22% higher top speed and ~20% quicker response (TUNE.craftSpeed / craftAccel); feeding unchanged
+    const max = (this.feeding ? 24 : 185 * (TUNE.craftSpeed || 1) * this.craft.speed) * this.power;
+    const rate = this.feeding ? 4.5 * this.craft.accel : (this.sinceBurst < 0.5 ? 1.6 : 2.1) * (TUNE.craftAccel || 1) * this.craft.accel;
     // weighty, slightly lagging response; vertical is a little slower (it has to lift its bulk)
     let wantX = this.inX * max;
     let wantY = this.inY * max * 0.8;
@@ -150,8 +151,9 @@ export class Creature {
     const t = this.t;
     const hw = 152 * (1 - this.tight * 0.08) * (1 + this.swallow * 0.03);
     // Top dome thickness and belly depth — shallow bowl / saucer
-    const th = 22 * (1 - this.tight * 0.3) * (1 + 0.02 * Math.sin(t * 1.1));
-    const tb = 14 + this.mouth * 3 + this.swallow * 4;
+    // v27: a slimmer, sleeker lens (was 22 / 14)
+    const th = 19 * (1 - this.tight * 0.3) * (1 + 0.02 * Math.sin(t * 1.1));
+    const tb = 11.5 + this.mouth * 3 + this.swallow * 4;
     const N = 36;
     ctx.beginPath();
     // Upper silhouette (smooth dome)
@@ -181,6 +183,83 @@ export class Creature {
   }
 
   /**
+   * v27 (Josh): polished chrome skin. The hull mirrors the night: dark sky on the dome, a sharp bright horizon
+   * line just above the rim, the dark ground below it, a sharp moon highlight that slides as the craft travels
+   * (so it reads as a reflection, not paint), and a thin specular rim. Still mostly dark, so it stays eerie.
+   * Lite (q < 0): one gradient + the moon glint only. Clip to the body path is already set by draw().
+   */
+  drawChrome(ctx, light, hw, th, tb) {
+    const lite = (this.q ?? 1) < 0;
+    const L = 0.55 + 0.45 * light; // the environment always reflects a little; beams/moon brighten it
+    const env = (this.x || 0) * 0.0016 + this.bank * 1.4; // reflections slide as it moves / banks
+    const hz = -th * 0.26 + Math.sin(env * 0.7) * 1.2; // reflected horizon line on the upper hull
+    const sk = ctx.createLinearGradient(0, -th, 0, tb + 4);
+    sk.addColorStop(0, "#2a3140");
+    sk.addColorStop(0.18, "#3b4658");
+    sk.addColorStop(Math.max(0.2, (hz + th) / (th + tb + 4) - 0.02), "#7d8ea6"); // bright sky glow at the horizon
+    sk.addColorStop(Math.max(0.22, (hz + th) / (th + tb + 4) + 0.02), "#0d0f12"); // sharp cut into the ground
+    sk.addColorStop(0.72, "#191b1e");
+    sk.addColorStop(1, "#060708");
+    ctx.fillStyle = sk;
+    ctx.globalAlpha *= 1;
+    ctx.fillRect(-hw - 8, -th - 8, hw * 2 + 16, th + tb + 24);
+    // keep it a night object: darken the whole skin by how unlit it is
+    ctx.fillStyle = `rgba(4,5,8,${0.5 * (1 - L)})`;
+    ctx.fillRect(-hw - 8, -th - 8, hw * 2 + 16, th + tb + 24);
+    const mx = -hw * 0.32 + Math.sin(env) * hw * 0.22; // moon glint position
+    if (!lite) {
+      // reflected sky banding (thin streaks of cloud/sky curving with the dome)
+      ctx.globalCompositeOperation = "lighter";
+      for (let k = 0; k < 3; k++) {
+        const yy = -th * (0.78 - k * 0.17);
+        const sx = Math.sin(env * (1.3 + k * 0.4) + k * 2) * hw * 0.4;
+        const g = ctx.createLinearGradient(sx - hw * 0.7, 0, sx + hw * 0.7, 0);
+        g.addColorStop(0, "rgba(120,140,170,0)");
+        g.addColorStop(0.5, `rgba(120,140,170,${(0.07 - k * 0.015) * L})`);
+        g.addColorStop(1, "rgba(120,140,170,0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(sx - hw * 0.7, yy, hw * 1.4, 1.6 + k * 0.4);
+      }
+      // the moon smeared along the curve of the hull (a stretched reflection)
+      const ms = ctx.createRadialGradient(mx, hz - 2, 0, mx, hz - 2, hw * 0.5);
+      ms.addColorStop(0, `rgba(200,215,240,${0.32 * L})`);
+      ms.addColorStop(0.25, `rgba(140,160,190,${0.12 * L})`);
+      ms.addColorStop(1, "rgba(80,90,110,0)");
+      ctx.fillStyle = ms;
+      ctx.save();
+      ctx.translate(mx, hz - 2);
+      ctx.scale(1, 0.14);
+      ctx.translate(-mx, -(hz - 2));
+      ctx.fillRect(mx - hw * 0.5, hz - 2 - hw * 0.5, hw, hw);
+      ctx.restore();
+      // faint ground glow bounced into the belly (warm, very low)
+      const bg = ctx.createLinearGradient(0, tb * 0.2, 0, tb + 4);
+      bg.addColorStop(0, "rgba(40,36,30,0)");
+      bg.addColorStop(1, `rgba(50,46,40,${0.18 * L})`);
+      ctx.fillStyle = bg;
+      ctx.fillRect(-hw - 4, 0, hw * 2 + 8, tb + 8);
+      ctx.globalCompositeOperation = "source-over";
+    }
+    // sharp specular: a hard moon glint on the dome and a thin bright rim along the equator
+    ctx.globalCompositeOperation = "lighter";
+    const gy = -th * 0.62;
+    const sp = ctx.createRadialGradient(mx * 0.8, gy, 0, mx * 0.8, gy, 9);
+    sp.addColorStop(0, `rgba(235,242,255,${0.75 * L})`);
+    sp.addColorStop(0.3, `rgba(190,205,230,${0.28 * L})`);
+    sp.addColorStop(1, "rgba(150,165,190,0)");
+    ctx.fillStyle = sp;
+    ctx.beginPath();
+    ctx.ellipse(mx * 0.8, gy, 16, 3.2, 0, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(170,185,210,${0.3 * L})`;
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.ellipse(0, 0.5, hw * 0.985, Math.max(2, th * 0.12), 0, Math.PI * 1.04, Math.PI * 1.96);
+    ctx.stroke();
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  /**
    * Draw the craft. `light` 0..1 = how much moon/flash/beam catches its edge.
    * Matte charcoal, dark underside hole — no lights, no windows, no seams.
    */
@@ -198,29 +277,7 @@ export class Creature {
     if (!silhouetteOnly) {
       ctx.save();
       ctx.clip();
-      // Soft top-to-belly matte gradient (seamless metal, no rivets)
-      const skin = ctx.createLinearGradient(0, -th, 0, tb + 6);
-      skin.addColorStop(0, "#1c1f24");
-      skin.addColorStop(0.35, "#121418");
-      skin.addColorStop(0.7, "#0a0b0d");
-      skin.addColorStop(1, "#050607");
-      ctx.fillStyle = skin;
-      ctx.fillRect(-hw - 8, -th - 8, hw * 2 + 16, th + tb + 24);
-      // Very faint moon sheen on the upper dome only — matte, never shiny
-      if (light > 0.02) {
-        const g = ctx.createLinearGradient(0, -th, 0, th * 0.4);
-        g.addColorStop(0, `rgba(90,98,110,${0.14 * light})`);
-        g.addColorStop(0.55, `rgba(40,44,52,${0.04 * light})`);
-        g.addColorStop(1, "rgba(20,22,26,0)");
-        ctx.fillStyle = g;
-        ctx.fillRect(-hw - 4, -th - 4, hw * 2 + 8, th + 10);
-        // Thin rim catch along the equator (still matte, no flashy arc)
-        ctx.strokeStyle = `rgba(110,118,128,${0.22 * light})`;
-        ctx.lineWidth = 1.0;
-        ctx.beginPath();
-        ctx.ellipse(0, 1, hw * 0.98, Math.max(2.5, th * 0.22), 0, Math.PI * 1.05, Math.PI * 1.95);
-        ctx.stroke();
-      }
+      this.drawChrome(ctx, light, hw, th, tb);
       // Dark circular underside hole — the only opening (Josh's refs)
       const holeR = 28 + this.mouth * 22;
       const holeY = tb * 0.55 + 2;

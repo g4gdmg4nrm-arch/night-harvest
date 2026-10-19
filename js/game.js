@@ -1,21 +1,21 @@
 // The first encounter: observe from cloud, descend, feed on the cow, get noticed, escape.
-import { EMP, CRAFTS, VH, WORLD_W, GROUND, HOUSE, COW_X, CLOUD_LAYERS, CREATURE_START, TUNE, LEVELS, levelById, STORM_LAYERS, STORM } from "./config.js?v=26";
-import { Area51 } from "./a51.js?v=26";
-import { Town } from "./town.js?v=26";
-import { Rodeo } from "./rodeo.js?v=26";
-import { Suburb } from "./suburb.js?v=26";
-import { Power } from "./power.js?v=26";
-import { Convoy } from "./convoy.js?v=26";
-import { Coast } from "./coast.js?v=26";
+import { EMP, CRAFTS, VH, WORLD_W, GROUND, HOUSE, COW_X, CLOUD_LAYERS, CREATURE_START, TUNE, LEVELS, levelById, STORM_LAYERS, STORM } from "./config.js?v=27";
+import { Area51 } from "./a51.js?v=27";
+import { Town } from "./town.js?v=27";
+import { Rodeo } from "./rodeo.js?v=27";
+import { Suburb } from "./suburb.js?v=27";
+import { Power } from "./power.js?v=27";
+import { Convoy } from "./convoy.js?v=27";
+import { Coast } from "./coast.js?v=27";
 const MODS = { town: Town, rodeo: Rodeo, suburb: Suburb, power: Power, convoy: Convoy, coast: Coast };
-import { clamp, damp, lerp, makeCanvas, noise1, smoothstep, TAU } from "./util.js?v=26";
-import { Wind } from "./wind.js?v=26";
-import { CloudField, cloudSprites } from "./clouds.js?v=26";
-import { Scene } from "./scene.js?v=26";
-import { Creature, MenuDirector } from "./creature.js?v=26";
-import { Witness, Car, Cow, HerdCow } from "./actors.js?v=26";
-import { audio } from "./audio.js?v=26";
-import { hwyStart, hwyTick, hwyDraw, hwyTruck, HWY } from "./highway.js?v=26";
+import { clamp, damp, lerp, makeCanvas, noise1, smoothstep, TAU } from "./util.js?v=27";
+import { Wind } from "./wind.js?v=27";
+import { CloudField, cloudSprites } from "./clouds.js?v=27";
+import { Scene } from "./scene.js?v=27";
+import { Creature, MenuDirector } from "./creature.js?v=27";
+import { Witness, Car, Cow, HerdCow } from "./actors.js?v=27";
+import { audio } from "./audio.js?v=27";
+import { hwyStart, hwyTick, hwyDraw, hwyTruck, HWY } from "./highway.js?v=27";
 
 export class Game {
   constructor(canvas, trees, settings) {
@@ -76,6 +76,7 @@ export class Game {
   setQuality(q) {
     this.quality = q;
     this.scene.setQuality(q);
+    this.creature.q = q; // v27: chrome skin has a cheap Lite version
     // v17 Lite tier (q = -1): cheaper clouds everywhere
     for (const cf of [this.quietClouds, this.stormClouds, this.a51 && this.a51.clouds, this.town && this.town.clouds, this.rodeo && this.rodeo.clouds, this.suburb && this.suburb.clouds, this.power && this.power.clouds, this.convoy && this.convoy.clouds, this.coast && this.coast.clouds]) if (cf) cf.lite = q < 0;
   }

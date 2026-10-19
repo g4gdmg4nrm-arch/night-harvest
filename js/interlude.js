@@ -1,7 +1,7 @@
 // v19: short silent between-level scenes (5-10 s) after levels 1-9. Tap / key skips.
 // Craft rises off -> an army truck convoy crosses the dark road -> the next place fades in.
-import { audio } from "./audio.js?v=26";
-import { LEVELS } from "./config.js?v=26";
+import { audio } from "./audio.js?v=27";
+import { LEVELS } from "./config.js?v=27";
 
 const DUR = { 1: 8, 2: 7, 3: 7, 4: 7, 5: 8, 6: 7, 7: 8, 8: 8, 9: 9 }; // seconds, matching clipAfterLn (ALL-LEVELS-SOUND.md)
 
@@ -61,9 +61,18 @@ export function playInterlude(fromLevel, done) {
       const bg = ctx.createRadialGradient(cx, cy + s, 0, cx, cy + s, s * 4); bg.addColorStop(0, "#9fb4ff"); bg.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = bg; ctx.fillRect(cx - s * 4, cy - s * 3, s * 8, s * 8);
       ctx.globalAlpha = a1;
-      ctx.fillStyle = "#0e1118";
-      ctx.beginPath(); ctx.ellipse(cx, cy, s * 1.6, s * 0.35, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(cx, cy - s * 0.2, s * 0.6, s * 0.4, 0, Math.PI, 0); ctx.fill();
+      // v27: polished chrome (night sky on top, sharp bright horizon, dark ground below, moon glint)
+      const ch = ctx.createLinearGradient(0, cy - s * 0.6, 0, cy + s * 0.32);
+      ch.addColorStop(0, "#2a3140"); ch.addColorStop(0.45, "#6d7e96"); ch.addColorStop(0.5, "#0d0f12"); ch.addColorStop(1, "#050607");
+      ctx.fillStyle = ch;
+      ctx.beginPath(); ctx.ellipse(cx, cy, s * 1.6, s * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cx, cy - s * 0.12, s * 0.6, s * 0.34, 0, Math.PI, 0); ctx.fill();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = "rgba(220,230,250,0.55)";
+      ctx.beginPath(); ctx.ellipse(cx - s * 0.25, cy - s * 0.3, s * 0.18, s * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "rgba(170,185,210,0.35)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(cx, cy, s * 1.58, s * 0.06, 0, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+      ctx.globalCompositeOperation = "source-over";
       ctx.fillStyle = "#6f86c8"; ctx.globalAlpha = a1 * (0.4 + 0.3 * Math.sin(t * 9));
       for (let i = -2; i <= 2; i++) ctx.fillRect(cx + i * s * 0.55 - 1, cy - 1, 2, 2);
     }

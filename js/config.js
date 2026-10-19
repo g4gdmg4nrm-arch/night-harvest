@@ -45,6 +45,8 @@ export const TUNE = {
   // Height-based danger: catches mainly while low/feeding; mid-height peeks are soft
   dangerLowY: 360, // below this, full exposure weight
   dangerHighY: 260, // above this (in / near cloud), exposure is heavily softened
+  craftSpeed: 1.22, // v27 (Josh): player top speed x1.22 (cruise 185 -> ~226)
+  craftAccel: 1.2, // v27: steering response x1.2 (still weighty on touch)
 };
 
 // ------------------------------------------------------------------ levels
@@ -123,9 +125,9 @@ export const A51 = {
   penHeatDecay: 0.35, // per second once you stop feeding / get into cloud
   penHuntRange: 0.16, // a hunting beam sweeps this tight (radians) around you
   penHuntTime: 7, // seconds the towers keep hunting the pen after they notice
-  lateFeedAt: 2.2, // v26: a feed starting this long after every beam swung away is hunted at once (careful dives start ~1.8 s in)
+  lateFeedAt: 1.9, // v26: a feed starting this long after every beam swung away is hunted at once (v27: careful dives start ~1.5 s in; was 2.2)
   seenFeedHunt: 0.2, // v26: s low in the open (feeding) with a beam still turned your way before the nearest beam is sent to the pen
-  awayCheck: 3.6, // v24: seconds of "every beam swung away" before low open feeding draws one back (closes the careless free cow)
+  awayCheck: 3.3, // v27: was 3.6 (craft is ~22% faster, so feeds start ~0.3 s sooner) // v24: seconds of "every beam swung away" before low open feeding draws one back (closes the careless free cow)
   // Energy (0..1): feeding fills it, bursts and hard climbs spend a little
   energyStart: 0.12,
   energyMinExit: 0.15,
@@ -374,7 +376,7 @@ export const POWER = {
   transformers: [2050, 2450, 2820, 3780],
   lampH: 130, // lamp head above the ground
   interR: 280, // presence radius around a lamp head
-  interWarn: 1.3, // crackle + stutter before it locks to full flood
+  interWarn: 1.05, // crackle + stutter before it locks to full flood (v27: was 1.3; the faster craft crossed the pool before it lit)
   alertHold: 7,
   poolR: 220, // lit pool half-width ...
   poolY: 230, // ... and it reaches up to this height (y below this line is lit)
@@ -385,7 +387,7 @@ export const POWER = {
   energyStart: 0.12,
   energyMinExit: 0.15,
   feedGain: [0.45, 0.3],
-  failExposure: 2.2,
+  failExposure: 1.8, // v27: was 2.2 (the faster craft spends ~20% less time crossing a lit pool)
 };
 export const POWER_CLOUDS = [
   { x: 320, y: 165, w: 600, h: 190, seed: 515, kind: "cumulus", drift: 45 },
