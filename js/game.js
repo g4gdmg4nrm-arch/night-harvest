@@ -1,21 +1,21 @@
 // The first encounter: observe from cloud, descend, feed on the cow, get noticed, escape.
-import { EMP, CRAFTS, VH, WORLD_W, GROUND, HOUSE, COW_X, CLOUD_LAYERS, CREATURE_START, TUNE, LEVELS, levelById, STORM_LAYERS, STORM } from "./config.js?v=27";
-import { Area51 } from "./a51.js?v=27";
-import { Town } from "./town.js?v=27";
-import { Rodeo } from "./rodeo.js?v=27";
-import { Suburb } from "./suburb.js?v=27";
-import { Power } from "./power.js?v=27";
-import { Convoy } from "./convoy.js?v=27";
-import { Coast } from "./coast.js?v=27";
+import { EMP, CRAFTS, VH, WORLD_W, GROUND, HOUSE, COW_X, CLOUD_LAYERS, CREATURE_START, TUNE, LEVELS, levelById, STORM_LAYERS, STORM } from "./config.js?v=28";
+import { Area51 } from "./a51.js?v=28";
+import { Town } from "./town.js?v=28";
+import { Rodeo } from "./rodeo.js?v=28";
+import { Suburb } from "./suburb.js?v=28";
+import { Power } from "./power.js?v=28";
+import { Convoy } from "./convoy.js?v=28";
+import { Coast } from "./coast.js?v=28";
 const MODS = { town: Town, rodeo: Rodeo, suburb: Suburb, power: Power, convoy: Convoy, coast: Coast };
-import { clamp, damp, lerp, makeCanvas, noise1, smoothstep, TAU } from "./util.js?v=27";
-import { Wind } from "./wind.js?v=27";
-import { CloudField, cloudSprites } from "./clouds.js?v=27";
-import { Scene } from "./scene.js?v=27";
-import { Creature, MenuDirector } from "./creature.js?v=27";
-import { Witness, Car, Cow, HerdCow } from "./actors.js?v=27";
-import { audio } from "./audio.js?v=27";
-import { hwyStart, hwyTick, hwyDraw, hwyTruck, HWY } from "./highway.js?v=27";
+import { clamp, damp, lerp, makeCanvas, noise1, smoothstep, TAU } from "./util.js?v=28";
+import { Wind } from "./wind.js?v=28";
+import { CloudField, cloudSprites } from "./clouds.js?v=28";
+import { Scene } from "./scene.js?v=28";
+import { Creature, MenuDirector } from "./creature.js?v=28";
+import { Witness, Car, Cow, HerdCow } from "./actors.js?v=28";
+import { audio } from "./audio.js?v=28";
+import { hwyStart, hwyTick, hwyDraw, hwyTruck, HWY } from "./highway.js?v=28";
 
 export class Game {
   constructor(canvas, trees, settings) {
@@ -525,6 +525,7 @@ export class Game {
 
   onBurst() {
     const c = this.creature;
+    try { audio.fx?.("ufo_boost"); } catch { /* v28: Gamer Girl's boost sound (audio.js) */ }
     this.clouds.disturb(c.x, c.y, 190, 70, TUNE.burstTear, c.vx * 0.3, c.vy * 0.3);
     this.shake = 5;
     audio.fx("burst", { pan: this.panOf(c.x) });
@@ -1259,14 +1260,13 @@ export class Game {
   applyBrightness(ctx) {
     const VW = this.VW;
     const b = this.settings.brightness;
-    // low end: a real darkening (0.7 is about half as bright); high end: color-dodge lifts the shadows
-    // and mid-tones without washing the blacks out to flat grey
+    // low end: a real darkening (0.7 is about half as bright). v28 (Mr Bug Fixit M7): the high end is ONE additive
+    // ("lighter") fill instead of a full-screen color-dodge + screen pair; non-basic blends over the whole screen
+    // were slowing old iPhones (A9-A11) whenever brightness was above 1. Additive is a plain GPU blend.
     if (b > 1.001) {
-      ctx.globalCompositeOperation = "color-dodge";
-      ctx.fillStyle = `rgba(120,128,140,${(b - 1) * 0.9})`;
-      ctx.fillRect(0, 0, VW, VH);
-      ctx.globalCompositeOperation = "screen";
-      ctx.fillStyle = `rgba(40,44,52,${(b - 1) * 0.35})`;
+      const k = (b - 1) * 2; // 0..1 over 1.0..1.5
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = `rgba(${Math.round(30 * k)},${Math.round(33 * k)},${Math.round(38 * k)},1)`;
       ctx.fillRect(0, 0, VW, VH);
       ctx.globalCompositeOperation = "source-over";
     } else if (b < 0.999) {

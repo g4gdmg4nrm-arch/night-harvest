@@ -1,7 +1,7 @@
 // The player: a bowl/saucer craft (Josh's refs). v27: polished mirror chrome (dark night reflections), dark underside hole,
 // no windows/lights/seams. Muscular motion: slow glides, still hover, sudden swoops and bursts.
-import { WORLD_W, GROUND, TUNE } from "./config.js?v=27";
-import { clamp, damp, lerp, TAU, noise1 } from "./util.js?v=27";
+import { WORLD_W, GROUND, TUNE } from "./config.js?v=28";
+import { clamp, damp, lerp, TAU, noise1 } from "./util.js?v=28";
 
 export class Creature {
   constructor() {
@@ -92,7 +92,8 @@ export class Creature {
     }
     // v27 (Josh): ~22% higher top speed and ~20% quicker response (TUNE.craftSpeed / craftAccel); feeding unchanged
     const max = (this.feeding ? 24 : 185 * (TUNE.craftSpeed || 1) * this.craft.speed) * this.power;
-    const rate = this.feeding ? 4.5 * this.craft.accel : (this.sinceBurst < 0.5 ? 1.6 : 2.1) * (TUNE.craftAccel || 1) * this.craft.accel;
+    // v28: the half second after a burst keeps the old slow damping so the burst carries (punchy at the new speed)
+    const rate = this.feeding ? 4.5 * this.craft.accel : this.sinceBurst < 0.5 ? 1.6 * this.craft.accel : 2.1 * (TUNE.craftAccel || 1) * this.craft.accel;
     // weighty, slightly lagging response; vertical is a little slower (it has to lift its bulk)
     let wantX = this.inX * max;
     let wantY = this.inY * max * 0.8;
@@ -101,8 +102,11 @@ export class Creature {
       wantY = Math.max(wantY, 280 * this.swoop);
       wantX *= 0.55;
     }
-    this.vx = damp(this.vx, wantX, rate, dt);
-    this.vy = damp(this.vy, wantY, rate * 0.9, dt);
+    // v28: ease into a stop (slower damping when slowing toward a near-still target) so small touch moves stay precise
+    const wantM = Math.hypot(wantX, wantY), curM = Math.hypot(this.vx, this.vy);
+    const ease = !this.feeding && wantM < curM && wantM < max * 0.25 ? 0.6 : 1;
+    this.vx = damp(this.vx, wantX, rate * ease, dt);
+    this.vy = damp(this.vy, wantY, rate * 0.9 * ease, dt);
     this.x += this.vx * dt;
     this.y += this.vy * dt;
     // soft bounds

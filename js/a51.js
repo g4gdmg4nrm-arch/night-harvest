@@ -5,12 +5,12 @@
 // Searchlight fairness (Game King / Gamer Girl): the ballast hum swells as a beam swings near you; a beam that
 // touches you HESITATES (everything goes quiet, ~1.5 s, about 1.2 s if you're low and feeding) before it can lock.
 // Leave the cone or reach thick cloud in that window and it loses you. Only a locked beam builds exposure.
-import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=27";
-import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=27";
-import { CloudField, cloudSprites } from "./clouds.js?v=27";
-import { Cow } from "./actors.js?v=27";
-import { audio } from "./audio.js?v=27";
-import { drawPerson, gaitPose, styleFor, PERSON } from "./people.js?v=27";
+import { VH, GROUND, TUNE, A51, A51_CLOUDS, EMP } from "./config.js?v=28";
+import { clamp, damp, lerp, makeCanvas, noise1, rng, smoothstep, TAU } from "./util.js?v=28";
+import { CloudField, cloudSprites } from "./clouds.js?v=28";
+import { Cow } from "./actors.js?v=28";
+import { audio } from "./audio.js?v=28";
+import { drawPerson, gaitPose, styleFor, PERSON, personSpotted } from "./people.js?v=28";
 
 const HIDE = 0.62; // cloud density that hides you from a beam
 const wrapA = (a) => {
@@ -56,6 +56,7 @@ export class Figure {
     this.seeT = 0;
     this.radioed = false;
     this.cool = 0;
+    this.spotWhy = null;
   }
   flee(dir) {
     if (this.state === "run" || this.state === "gone") return false;
@@ -76,6 +77,10 @@ export class Figure {
     }
     this.lookUp = damp(this.lookUp, this.state === "look" || this.state === "run" ? 1 : 0, 3, dt);
     this.point = damp(this.point, this.pointWant, this.pointWant ? 5 : 2, dt);
+    // v28: voice-line hook (people.js personSpotted) the moment this person notices the craft
+    const why = this.state === "run" ? "run" : this.pointWant > 0.5 ? "point" : this.state === "look" ? "look" : null;
+    if (why && why !== this.spotWhy && (why !== "look" || !this.spotWhy)) personSpotted(this, why);
+    this.spotWhy = why;
   }
   draw(ctx, rim) {
     if (this.state === "gone") return;
@@ -621,6 +626,7 @@ export class Area51 {
   onBurst() {
     const g = this.g;
     const c = g.creature;
+    try { audio.fx?.("ufo_boost"); } catch { /* v28: Gamer Girl's boost sound (audio.js) */ }
     this.clouds.disturb(c.x, c.y, 190, 70, TUNE.burstTear, c.vx * 0.3, c.vy * 0.3);
     g.shake = 5;
     audio.fx("burst", { pan: this.panOf(c.x) });

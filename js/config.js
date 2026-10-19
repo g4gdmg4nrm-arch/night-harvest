@@ -39,32 +39,34 @@ export const TUNE = {
   winHidden: 4, // seconds hidden after the harvest to escape
   searchEaseHidden: 11, // seconds hidden before an unfed search calms down
   exposedAfterHarvest: 8, // harvested and out of cover this long = seen
-  burstImpulse: 560, // slightly sharper upward escape
+  burstImpulse: 700, // v28: 560 -> 700 so the burst still kicks well past the faster 1.8x cruise speed
   burstTear: 0.32,
   carSpawnBack: 900, // the car starts this far left of the screen, so you hear it first
   // Height-based danger: catches mainly while low/feeding; mid-height peeks are soft
   dangerLowY: 360, // below this, full exposure weight
   dangerHighY: 260, // above this (in / near cloud), exposure is heavily softened
-  craftSpeed: 1.22, // v27 (Josh): player top speed x1.22 (cruise 185 -> ~226)
-  craftAccel: 1.2, // v27: steering response x1.2 (still weighty on touch)
+  craftSpeed: 1.8, // v28 (Josh): top speed exactly 1.8x the original v26 speed (cruise 185 -> 333; v27 was 1.22)
+  craftAccel: 1.75, // v28: snappier response x1.75 (v27 1.2); easing near a stop keeps touch precise (creature.js)
 };
 
 // ------------------------------------------------------------------ levels
 // Josh's locked list (design/levels-10.md, Area 51 arc). Built: 1 Area 51 Escape, 2 Quiet Farm.
 // 3 Storm Farm is the paused WIP (all storm code keys off `storm: true`); `wip: true` keeps it locked in the
 // Levels menu until it's properly remounted. Add `?all` to the URL to open every built level for testing.
+// v28: `par` = seconds for 3 stars (never caught and run time <= par); `hook` = the Get Ready card line.
+// L1-4 pars = careful-bot median from a fresh start, rounded up to 5 s (L1 45.9, L2 33, L3 ~48, L4 ~23); L5-10 from Game King's spec.
 export const LEVELS = [
-  { id: 1, name: "Area 51 Escape", kind: "a51" },
-  { id: 2, name: "Quiet Farm", kind: "farm", storm: false },
-  { id: 3, name: "Storm Farm", kind: "farm", storm: true, wip: false },
+  { id: 1, name: "Area 51 Escape", kind: "a51", par: 50, hook: "Hangar 18. They've kept you starving for weeks." },
+  { id: 2, name: "Quiet Farm", kind: "farm", storm: false, par: 35, hook: "One farmhouse. One cow. Nobody awake. Probably." },
+  { id: 3, name: "Storm Farm", kind: "farm", storm: true, wip: false, par: 50, hook: "The wind is coming. It will take your cloud with it." },
   // v18 level 4: the farm engine with rest-stop dressing, lightning every 6.5-9.5 s and an army truck patrol (js/highway.js)
-  { id: 4, name: "Highway Rest Stop", kind: "farm", storm: false, highway: true },
-  { id: 5, name: "Small Town", kind: "town" },
-  { id: 6, name: "Rodeo Fairground", kind: "rodeo" },
-  { id: 7, name: "Suburb Backyards", kind: "suburb" },
-  { id: 8, name: "Power Station", kind: "power" },
-  { id: 9, name: "Army Convoy", kind: "convoy" },
-  { id: 10, name: "Coast at Dawn", kind: "coast" },
+  { id: 4, name: "Highway Rest Stop", kind: "farm", storm: false, highway: true, par: 25, hook: "Every flash of lightning shows them where you are." },
+  { id: 5, name: "Small Town", kind: "town", par: 40, hook: "Two streets. Feed on one and the other wakes." },
+  { id: 6, name: "Rodeo Fairground", kind: "rodeo", par: 45, hook: "The easiest meal here is the one they left out for you." },
+  { id: 7, name: "Suburb Backyards", kind: "suburb", par: 50, hook: "The houses are dark. The phones aren't." },
+  { id: 8, name: "Power Station", kind: "power", par: 35, hook: "The radios hear you before anyone sees you." },
+  { id: 9, name: "Army Convoy", kind: "convoy", par: 55, hook: "They're hunting now. Feed twice, or you won't reach the coast." },
+  { id: 10, name: "Coast at Dawn", kind: "coast", par: 50, hook: "Last night on Earth. The sun is coming up." },
 ];
 export const levelById = (id) => LEVELS.find((L) => L.id === id) || LEVELS[0];
 // Progress lock: Area 51 and Quiet Farm are always open; later levels open when the one before is beaten.
@@ -134,7 +136,7 @@ export const A51 = {
   feedGain: [0.42, 0.28, 0.22], // first, second, third cow
   burstCost: 0.06,
   climbCost: 0.016, // per second of hard climbing
-  feedSeconds: 2.4, // v13: ~2.7 s real (was 5.0)
+  feedSeconds: 2.7, // v28 (Game King): level 1 cow feed ~0.3 s longer (was 2.4; other levels keep 2.4 below)
   winHidden: 2.5, // past the fence and hidden this long = escaped
 };
 export const A51_CLOUDS = [
@@ -199,7 +201,7 @@ export const CRAFTS = {
 // Plan the order: feed on the far street first, or feed near and wait out the far street.
 export const TOWN = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, // level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, feedSeconds: 2.4, // level 1 only
   W: 5000,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 }, // no hangar
   start: { x: 320, y: 170 },
@@ -250,7 +252,7 @@ export const TOWN_CLOUDS = [
 // decoy. Drop on it and the trap springs: relay clack + bulbs stutter (1.3 s warning), then the floodlights snap on.
 export const RODEO = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, // level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, feedSeconds: 2.4, // level 1 only
   W: 5200,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 }, // no hangar
   start: { x: 320, y: 170 },
@@ -305,7 +307,7 @@ export const RODEO_CLOUDS = [
 // dead for a while. Lesson: dark houses aren't safe; watch the windows, feed when the near phones are spent.
 export const SUBURB = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, // level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, feedSeconds: 2.4, // level 1 only
   W: 5000,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 },
   start: { x: 320, y: 170 },
@@ -358,7 +360,7 @@ export const SUBURB_CLOUDS = [
 // Lesson: pick the dark path (high, through cloud, between the lamps).
 export const POWER = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, // level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, feedSeconds: 2.4, // level 1 only
   W: 5800,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 },
   start: { x: 320, y: 170 },
@@ -376,7 +378,7 @@ export const POWER = {
   transformers: [2050, 2450, 2820, 3780],
   lampH: 130, // lamp head above the ground
   interR: 280, // presence radius around a lamp head
-  interWarn: 1.05, // crackle + stutter before it locks to full flood (v27: was 1.3; the faster craft crossed the pool before it lit)
+  interWarn: 0.75, // v28: was 1.05 (craft 1.8x v26 crossed the pool before it lit); crackle + stutter before it locks to full flood (v27: was 1.3; the faster craft crossed the pool before it lit)
   alertHold: 7,
   poolR: 220, // lit pool half-width ...
   poolY: 230, // ... and it reaches up to this height (y below this line is lit)
@@ -387,7 +389,7 @@ export const POWER = {
   energyStart: 0.12,
   energyMinExit: 0.15,
   feedGain: [0.45, 0.3],
-  failExposure: 1.8, // v27: was 2.2 (the faster craft spends ~20% less time crossing a lit pool)
+  failExposure: 1.5, // v28: was 1.8; v27: was 2.2 (the faster craft spends ~20% less time crossing a lit pool)
 };
 export const POWER_CLOUDS = [
   { x: 320, y: 165, w: 600, h: 190, seed: 515, kind: "cumulus", drift: 45 },
@@ -404,7 +406,7 @@ export const POWER_CLOUDS = [
 // (l9StingConvoyTurns). Three paddocks below the ridge. You need Energy >= exitEnergy to leave: bank 2 feeds.
 export const CONVOY = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, // level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, feedSeconds: 2.4, // level 1 only
   W: 6000,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 },
   start: { x: 320, y: 170 },
@@ -461,7 +463,7 @@ export const CONVOY_CLOUDS = [
 // sea bank. Energy at the shore decides the ending: >= escapeEnergy = escape to space, less = captured.
 export const COAST = {
   ...A51,
-  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, // level 1 only
+  lockFeedMul: 1, brushFeedMul: 1, noticedFeedMul: 1, awayCheck: null, seenFeedHunt: null, lateFeedAt: null, feedSeconds: 2.4, // level 1 only
   W: 5600,
   hangar: { x0: -3000, x1: -2900, roof: -1000, door: -2900 }, // no hangar on this level
   start: { x: 300, y: 170 },
