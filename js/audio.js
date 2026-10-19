@@ -138,7 +138,28 @@ export const SFX_FILES = {
   shockSpotted: ["sting_2"],
   shockFail: ["sting_3"],
   shockPorch: ["sting_1"],
+  // v28: UFO boost whoosh (a51.js / game.js call fx("ufo_boost")); listed here so discover() keeps it
+  ufo_boost: ["ufo_boost"],
 };
+
+// v28 voice lines (Gamer Girl): people who spot the craft call audio.say("spot-<kind>").
+// Real CC0 recordings + ElevenLabs v3 takes, all mono MP3 in audio/sfx/voice_*.mp3 (see design/VOICES-*.md).
+const RADIO = ["voice_radio_what_was_that", "voice_radio_do_you_hear_that", "voice_radio_contact_north", "voice_radio_confirm_sighted",
+  "voice_radio_target_located", "voice_radio_sighting_my_location", "voice_radio_take_cover", "voice_radio_roger_that"];
+export const VOICE_POOLS = {
+  farmer: ["voice_farmer_what_is_that", "voice_farmer_whos_that", "voice_farmer_what_was_that", "voice_farmer_wait", "voice_farmer_something_field"],
+  civ: ["voice_woman_go_inside", "voice_woman_get_inside", "voice_woman_where_are_you", "voice_man_help", "voice_scream_man", "voice_scream_woman"],
+  soldier: RADIO,
+  guard: ["voice_radio_what_was_that", "voice_radio_do_you_hear_that", "voice_radio_contact_north", "voice_radio_confirm_sighted",
+    "voice_radio_target_located", "voice_radio_roger_that"],
+  sci: ["voice_radio_what_was_that", "voice_radio_do_you_hear_that", "voice_radio_confirm_sighted", "voice_man_help"],
+};
+// Which kinds of people each level has (so warmLevel only decodes those voices; anything else loads on first use).
+const LEVEL_VOICES = { 1: ["sci", "guard", "soldier"], 2: ["farmer"], 3: ["farmer"], 4: ["farmer", "civ"], 5: ["civ"], 6: ["civ"],
+  7: ["civ"], 8: ["soldier"], 9: ["soldier"], 10: ["soldier", "civ"] };
+const VOICE_GAIN = 0.8; // clips are mastered to about -18 LUFS; this sits them just under the stings
+const VOICE_MIN_GAP = 1.0; // seconds of silence between two lines, on top of people.js's 3.5 s
+Object.values(VOICE_POOLS).flat().forEach((n) => (SFX_FILES[n] = SFX_FILES[n] || [n]));
 
 export const LEVEL_SOUNDS = {
  "1": [
@@ -1572,7 +1593,84 @@ export class AudioDirector {
   // ---------------------------------------------------------------- Area 51 Escape
   /** Decode the level 1 pack (beds first) so the hangar has its air and the door is ready. */
   /** All-levels pass: decode level n's pack in the background (call when the level starts or its clip begins). */
+  // ---------------------------------------------------------------- voice lines (v28)
+  /**
+   * A person spotted the craft: say("spot-<kind>", {kind, x, why}). One random line from that kind's pool (never the
+   * same line twice in a row), never over another voice, slight random pitch/level. Silently does nothing if the
+   * kind is unknown, audio is locked, or the clip is missing / fails to decode (old iOS safe).
+   */
+  async say(what, opts = {}) {
+    try {
+      const kind = String((opts && opts.kind) || what || "").replace(/^spot-/, "");
+      const pool = (VOICE_POOLS[kind] || []).filter((n) => this.files.sfx.has(n));
+      if (!pool.length || this.voiceBusy) return null; // one line (or decode) at a time
+      const v = this.voice;
+      if (v && this.ctx && (this.alive && this.alive.has(v.h) ? true : this.ctx.currentTime < v.end + VOICE_MIN_GAP)) return null; // never overlap
+      this.voiceBusy = true;
+      let ok = false;
+      try {
+        ok = await this.ensureRunning();
+      } finally {
+        this.voiceBusy = false;
+      }
+      if (!ok) return null;
+      const c = this.ctx;
+      this.lastVoice = this.lastVoice || {};
+      const choices = pool.length > 1 ? pool.filter((n) => n !== this.lastVoice[kind] && n !== this.voiceLastAny) : pool;
+      const ready = choices.filter((n) => this.mem.has(`audio/sfx/${n}.mp3`));
+      const list = ready.length ? ready : choices;
+      const file = list[(Math.random() * list.length) | 0];
+      const gen = this.gen;
+      this.voiceBusy = true;
+      let buf = null;
+      try {
+        buf = await this.buffer(`audio/sfx/${file}.mp3`);
+      } finally {
+        this.voiceBusy = false;
+      }
+      if (!buf || gen !== this.gen) return null;
+      const v2 = this.voice;
+      if (v2 && this.alive && this.alive.has(v2.h)) return null; // another line started while this one decoded
+      const rate = 0.96 + Math.random() * 0.08; // about +-0.7 semitone
+      const gain = VOICE_GAIN * (0.85 + Math.random() * 0.2);
+      const pan = Math.max(-0.35, Math.min(0.35, (Math.random() - 0.5) * 0.3));
+      const h = this.oneShot(buf, this.sfx, gain, pan, rate);
+      this.voice = { h, file, end: c.currentTime + buf.duration / rate };
+      this.lastVoice[kind] = file;
+      this.voiceLastAny = file;
+      this.voiceLog = this.voiceLog || [];
+      this.voiceLog.push({ kind, file, t: +c.currentTime.toFixed(3), dur: +(buf.duration / rate).toFixed(3) });
+      // warm one other line of this pool for next time (cheap: clips are under 2.5 s mono)
+      const next = pool.find((n) => n !== file && !this.buffers.has(`audio/sfx/${n}.mp3`));
+      if (next) this.buffer(`audio/sfx/${next}.mp3`);
+      return h;
+    } catch {
+      this.voiceBusy = false;
+      return null;
+    }
+  }
+  /** Decode the voice pools for the kinds of people in level n (two lines each, the rest on demand). */
+  warmVoices(n) {
+    try {
+      const kinds = LEVEL_VOICES[n] || [];
+      const want = new Set(kinds.flatMap((k) => (VOICE_POOLS[k] || []).filter((f) => this.files.sfx.has(f)).slice(0, 2)));
+      // free other levels' voices that aren't playing
+      const all = new Set(Object.values(VOICE_POOLS).flat());
+      const drop = new Set([...all].filter((f) => !want.has(f) && !(kinds.some((k) => (VOICE_POOLS[k] || []).includes(f)))));
+      for (const f of drop) {
+        const p = `audio/sfx/${f}.mp3`;
+        if (!this.mem.has(p) || (this.voice && this.voice.file === f)) continue;
+        this.mem.delete(p);
+        this.buffers.delete(p);
+        this.used.delete(p);
+      }
+      if (this.ctx) want.forEach((f) => this.buffer(`audio/sfx/${f}.mp3`));
+    } catch {
+      /* never let voices break a level start */
+    }
+  }
   warmLevel(n) {
+    this.warmVoices(n);
     // v19 QA: a level start also retires every other level's pack, so beds can't stack and old loops are freed
     const keep = new Set(LEVEL_SOUNDS[String(n)] || []);
     const others = new Set(Object.values(LEVEL_SOUNDS).flat().filter((f) => !keep.has(f) && /^(l\d+_|clip_after_|ending_)/.test(f)));
