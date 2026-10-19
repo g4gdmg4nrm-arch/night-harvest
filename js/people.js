@@ -2,7 +2,7 @@
 // dark in the night: a cold moon rim on one side, an optional warm rim (doorway / torch), a soft contact shadow.
 // Local frame: facing +x, feet on y = 0, about 60 units tall at scale 1. Angles are from straight down,
 // positive = toward the facing direction.
-import { clamp, TAU } from "./util.js?v=26";
+import { clamp, TAU } from "./util.js?v=27";
 
 const T = 14, S = 14.5, TORSO = 23, UA = 11, FA = 10.5; // thigh, shin, torso, upper arm, forearm
 export const PERSON = { T, S, TORSO };
