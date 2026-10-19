@@ -8,6 +8,7 @@ import { VH, GROUND, TOWN, TOWN_CLOUDS } from "./config.js?v=28";
 import { lerp, rng, TAU } from "./util.js?v=28";
 import { Area51, Figure } from "./a51.js?v=28";
 import { audio } from "./audio.js?v=28";
+import { personSpotted } from "./people.js?v=28";
 
 const HIDE = 0.62;
 
@@ -117,6 +118,7 @@ export class Town extends Area51 {
           S.holdT = TOWN.wakeHold;
           audio.fx("l5StingDogsWake", { gain: 1, pan: this.panOf((S.x0 + S.x1) / 2) });
           for (const p of S.people) p.reset(), (p.state = "idle");
+          try { personSpotted?.({ kind: "civ", x: (S.x0 + S.x1) / 2 }, "look"); } catch {} // v28 voice hook
           this.g.onEvent("town-awake");
           this.setHint();
         }

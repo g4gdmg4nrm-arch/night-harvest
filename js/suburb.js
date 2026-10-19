@@ -7,6 +7,7 @@ import { VH, GROUND, SUBURB, SUBURB_CLOUDS, TUNE } from "./config.js?v=28";
 import { rng, TAU } from "./util.js?v=28";
 import { Area51, Figure } from "./a51.js?v=28";
 import { audio } from "./audio.js?v=28";
+import { personSpotted } from "./people.js?v=28";
 
 const HIDE = 0.62;
 const WIN_Y = GROUND - 62; // bedroom window height
@@ -116,6 +117,7 @@ export class Suburb extends Area51 {
         P.t = SUBURB.phoneWarn;
         if (Math.abs(P.x - c.x) < 900) audio.fx("l7StingPhoneGlow", { gain: 0.9, pan: this.panOf(P.x), dist: this.distOf(P.x) });
         this.faces[i].state = "look";
+        try { personSpotted?.({ kind: "civ", x: P.x }, "look"); } catch {} // v28 voice hook
         this.g.onEvent("phone-warn");
       } else if (P.state === "warn" && P.t <= 0) {
         P.state = "film";

@@ -8,6 +8,7 @@ import { VH, GROUND, POWER, POWER_CLOUDS, TUNE } from "./config.js?v=28";
 import { rng, TAU } from "./util.js?v=28";
 import { Area51, Figure } from "./a51.js?v=28";
 import { audio } from "./audio.js?v=28";
+import { personSpotted } from "./people.js?v=28";
 
 const HIDE = 0.62;
 const LY = GROUND - POWER.lampH;
@@ -125,6 +126,7 @@ export class Power extends Area51 {
           L.state = "alert";
           L.t = POWER.alertHold;
           this.crew[i].state = "look";
+          try { personSpotted?.({ kind: "guard", x: L.x }, "look"); } catch {} // v28 voice hook
           this.g.onEvent("power-alert");
         }
       } else if (L.state === "alert") {
