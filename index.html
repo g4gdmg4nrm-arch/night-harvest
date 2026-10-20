@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="theme-color" content="#000000" />
+<title>Night Harvest</title>
+<link rel="icon" href="data:," />
+<link rel="stylesheet" href="css/style.css?v=30" />
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+
+  <div id="hud" class="hidden">
+    <button id="btnPause" class="ghost" aria-label="Pause"><span></span><span></span></button>
+    <div id="touch">
+      <div id="stickZone"></div>
+      <div id="stickBase"></div>
+      <div id="stickKnob"></div>
+      <button id="btnBurst" aria-label="Burst">BURST</button>
+      <button id="btnFeed" aria-label="Feed (hold)">FEED</button>
+      <button id="btnEmp" aria-label="EMP">EMP</button>
+    </div>
+    <div id="hint"></div>
+    <div id="tut" class="off"><span id="tutText"></span><button id="tutSkip" aria-label="Skip tutorial">skip</button></div>
+    <div id="empStat">EMP ready · Q</div>
+    <div id="energy" class="hidden" aria-label="Energy">
+      <div class="elabel">Energy <span id="epct"></span></div>
+      <div class="ebar"><div id="efill"></div><div id="epend"></div><div class="emin" title="needed to leave"></div></div>
+    </div>
+  </div>
+
+  <div id="menu" class="panel">
+    <h1>NIGHT HARVEST</h1>
+    <div class="buttons">
+      <button id="btnStart">Start</button>
+      <button id="btnLevels">Levels</button>
+      <button id="btnSettings">Settings</button>
+    </div>
+    <p class="small">Best with headphones</p>
+  </div>
+
+  <div id="levels" class="panel hidden">
+    <h2>Levels</h2>
+    <div class="levelList">
+      <button class="lvl" data-level="1"><span class="num">I</span><span class="nm">Area 51 Escape</span><span class="tag" id="lvlTag1"></span><span class="stars" id="lvlStars1"></span></button>
+      <button class="lvl" data-level="2"><span class="num">II</span><span class="nm">Quiet Farm</span><span class="tag" id="lvlTag2"></span><span class="stars" id="lvlStars2"></span></button>
+      <button class="lvl" data-level="3"><span class="num">III</span><span class="nm">Storm Farm</span><span class="tag" id="lvlTag3"></span><span class="stars" id="lvlStars3"></span></button>
+      <button class="lvl" data-level="4"><span class="num">IV</span><span class="nm">Highway Rest Stop</span><span class="tag" id="lvlTag4"></span><span class="stars" id="lvlStars4"></span></button>
+      <button class="lvl" data-level="5"><span class="num">V</span><span class="nm">Small Town</span><span class="tag" id="lvlTag5"></span><span class="stars" id="lvlStars5"></span></button>
+      <button class="lvl" data-level="6"><span class="num">VI</span><span class="nm">Rodeo Fairground</span><span class="tag" id="lvlTag6"></span><span class="stars" id="lvlStars6"></span></button>
+      <button class="lvl" data-level="7"><span class="num">VII</span><span class="nm">Suburb Backyards</span><span class="tag" id="lvlTag7"></span><span class="stars" id="lvlStars7"></span></button>
+      <button class="lvl" data-level="8"><span class="num">VIII</span><span class="nm">Power Station</span><span class="tag" id="lvlTag8"></span><span class="stars" id="lvlStars8"></span></button>
+      <button class="lvl" data-level="9"><span class="num">IX</span><span class="nm">Army Convoy</span><span class="tag" id="lvlTag9"></span><span class="stars" id="lvlStars9"></span></button>
+      <button class="lvl" data-level="10"><span class="num">X</span><span class="nm">Coast at Dawn</span><span class="tag" id="lvlTag10"></span><span class="stars" id="lvlStars10"></span></button>
+    </div>
+    <div class="buttons"><button id="btnLvlBack">Back</button></div>
+  </div>
+
+  <div id="settings" class="panel hidden">
+    <h2>Settings</h2>
+    <div class="rows">
+      <label>Brightness <input id="sBright" type="range" min="0.7" max="1.5" step="0.05" /></label>
+      <div id="calib"><div id="calibBox"><div id="calibSym"></div></div><span>Turn brightness up until the circle is just visible</span></div>
+      <label>Music <input id="sMusic" type="range" min="0" max="1" step="0.05" /></label>
+      <label>Ambience <input id="sAmb" type="range" min="0" max="1" step="0.05" /></label>
+      <label>Effects <input id="sSfx" type="range" min="0" max="1" step="0.05" /></label>
+      <label>Quality
+        <select id="sQuality">
+          <option value="auto">Auto</option>
+          <option value="lite">Lite (old iPhone/iPad)</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </label>
+      <label>Craft
+        <select id="sCraft">
+          <option value="stalker">Stalker (steady)</option>
+          <option value="raider">Raider (fast, aggressive)</option>
+        </select>
+      </label>
+      <label class="check"><input id="sFlash" type="checkbox" /> Reduce flashes</label>
+      <label class="check"><input id="sStings" type="checkbox" /> Softer shock sounds</label>
+      <button id="btnTutAgain" type="button">Show tutorial again</button>
+    </div>
+    <div class="buttons"><button id="btnBack">Back</button></div>
+  </div>
+
+  <div id="pause" class="panel hidden">
+    <h2>Paused</h2>
+    <div class="buttons">
+      <button id="btnResume">Resume</button>
+      <button id="btnRestart">Restart</button>
+      <button id="btnPSettings">Settings</button>
+      <button id="btnMenu">Main menu</button>
+    </div>
+  </div>
+
+  <div id="end" class="panel hidden">
+    <h2 id="endTitle">Gone.</h2>
+    <div id="endStars" aria-label="Stars"><span>★</span><span>★</span><span>★</span></div>
+    <p id="endMiss" class="small"></p>
+    <p id="endText" class="small"></p>
+    <div class="buttons">
+      <button id="btnNext" class="hidden">Next</button>
+      <button id="btnAgain">Hunt again</button>
+      <button id="btnEndMenu">Main menu</button>
+    </div>
+  </div>
+
+  <div id="seen" class="hidden">Seen.</div>
+  <div id="ready" class="hidden"><div id="readyNum"></div><div id="readyName"></div><div id="readyHook"></div></div>
+  <div id="rotate" class="hidden">Turn your phone sideways</div>
+</div>
+<script type="module" src="js/main.js?v=30"></script>
+</body>
+</html>
