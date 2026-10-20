@@ -3,10 +3,10 @@
 // (thick cores still hide you) and soldiers see further. Same rules as Area 51: no combat, hide / feed / burst / EMP,
 // and every searchlight catch has the ~1.5 s hesitation (1.2 s feeding low) before it locks.
 // At the shoreline the Energy check decides the ending: enough = escape to space, too little = captured.
-import { VH, GROUND, COAST, COAST_CLOUDS, EMP } from "./config.js?v=28";
-import { clamp, lerp, makeCanvas, rng, smoothstep, TAU } from "./util.js?v=28";
-import { Area51 } from "./a51.js?v=28";
-import { audio } from "./audio.js?v=28";
+import { VH, GROUND, COAST, COAST_CLOUDS, EMP } from "./config.js?v=29";
+import { clamp, lerp, makeCanvas, rng, smoothstep, TAU } from "./util.js?v=29";
+import { Area51 } from "./a51.js?v=29";
+import { audio } from "./audio.js?v=29";
 
 export class Coast extends Area51 {
   constructor(game) {
