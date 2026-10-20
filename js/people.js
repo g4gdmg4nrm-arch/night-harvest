@@ -2,8 +2,8 @@
 // dark in the night: a cold moon rim on one side, an optional warm rim (doorway / torch), a soft contact shadow.
 // Local frame: facing +x, feet on y = 0, about 60 units tall at scale 1. Angles are from straight down,
 // positive = toward the facing direction.
-import { clamp, TAU } from "./util.js?v=29";
-import { audio } from "./audio.js?v=29";
+import { clamp, TAU } from "./util.js?v=30";
+import { audio } from "./audio.js?v=30";
 
 // v28 voice-line hook: a person who spots the UFO (starts looking up, pointing or running) calls
 // audio.say("spot-<kind>", { kind, x, why }) for Gamer Girl's clips. A guarded no-op until audio.say exists, so it
