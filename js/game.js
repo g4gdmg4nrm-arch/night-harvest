@@ -1,21 +1,21 @@
 // The first encounter: observe from cloud, descend, feed on the cow, get noticed, escape.
-import { EMP, CRAFTS, VH, WORLD_W, GROUND, HOUSE, COW_X, CLOUD_LAYERS, CREATURE_START, TUNE, LEVELS, levelById, STORM_LAYERS, STORM } from "./config.js?v=28";
-import { Area51 } from "./a51.js?v=28";
-import { Town } from "./town.js?v=28";
-import { Rodeo } from "./rodeo.js?v=28";
-import { Suburb } from "./suburb.js?v=28";
-import { Power } from "./power.js?v=28";
-import { Convoy } from "./convoy.js?v=28";
-import { Coast } from "./coast.js?v=28";
+import { EMP, CRAFTS, VH, WORLD_W, GROUND, HOUSE, COW_X, CLOUD_LAYERS, CREATURE_START, TUNE, LEVELS, levelById, STORM_LAYERS, STORM } from "./config.js?v=29";
+import { Area51 } from "./a51.js?v=29";
+import { Town } from "./town.js?v=29";
+import { Rodeo } from "./rodeo.js?v=29";
+import { Suburb } from "./suburb.js?v=29";
+import { Power } from "./power.js?v=29";
+import { Convoy } from "./convoy.js?v=29";
+import { Coast } from "./coast.js?v=29";
 const MODS = { town: Town, rodeo: Rodeo, suburb: Suburb, power: Power, convoy: Convoy, coast: Coast };
-import { clamp, damp, lerp, makeCanvas, noise1, smoothstep, TAU } from "./util.js?v=28";
-import { Wind } from "./wind.js?v=28";
-import { CloudField, cloudSprites } from "./clouds.js?v=28";
-import { Scene } from "./scene.js?v=28";
-import { Creature, MenuDirector } from "./creature.js?v=28";
-import { Witness, Car, Cow, HerdCow } from "./actors.js?v=28";
-import { audio } from "./audio.js?v=28";
-import { hwyStart, hwyTick, hwyDraw, hwyTruck, HWY } from "./highway.js?v=28";
+import { clamp, damp, lerp, makeCanvas, noise1, smoothstep, TAU } from "./util.js?v=29";
+import { Wind } from "./wind.js?v=29";
+import { CloudField, cloudSprites } from "./clouds.js?v=29";
+import { Scene } from "./scene.js?v=29";
+import { Creature, MenuDirector } from "./creature.js?v=29";
+import { Witness, Car, Cow, HerdCow } from "./actors.js?v=29";
+import { audio } from "./audio.js?v=29";
+import { hwyStart, hwyTick, hwyDraw, hwyTruck, HWY } from "./highway.js?v=29";
 
 export class Game {
   constructor(canvas, trees, settings) {

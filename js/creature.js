@@ -1,7 +1,7 @@
 // The player: a bowl/saucer craft (Josh's refs). v27: polished mirror chrome (dark night reflections), dark underside hole,
 // no windows/lights/seams. Muscular motion: slow glides, still hover, sudden swoops and bursts.
-import { WORLD_W, GROUND, TUNE } from "./config.js?v=28";
-import { clamp, damp, lerp, TAU, noise1 } from "./util.js?v=28";
+import { WORLD_W, GROUND, TUNE } from "./config.js?v=29";
+import { clamp, damp, lerp, TAU, noise1 } from "./util.js?v=29";
 
 export class Creature {
   constructor() {

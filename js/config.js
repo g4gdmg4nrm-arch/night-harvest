@@ -380,6 +380,8 @@ export const POWER = {
   interR: 280, // presence radius around a lamp head
   interWarn: 0.75, // v28: was 1.05 (craft 1.8x v26 crossed the pool before it lit); crackle + stutter before it locks to full flood (v27: was 1.3; the faster craft crossed the pool before it lit)
   alertHold: 7,
+  swingR: 260, // v29: an alerted lamp can swing its pool this far toward a low / feeding craft ...
+  swingSpeed: 240, // ... at this many px/s
   poolR: 220, // lit pool half-width ...
   poolY: 230, // ... and it reaches up to this height (y below this line is lit)
   arcR: 120, // this close to a transformer = arc flash
