@@ -350,9 +350,31 @@ async function discover() {
   return found;
 }
 
+// v30: Music / Sound effects switches, remembered across visits. Private mode Safari may throw on localStorage: default on.
+const SOUND_KEY = "nh-sound-v1";
+function loadSoundSwitches() {
+  const on = { music: true, sfx: true };
+  try {
+    const j = JSON.parse(localStorage.getItem(SOUND_KEY) || "{}");
+    if (j.music === false) on.music = false;
+    if (j.sfx === false) on.sfx = false;
+  } catch {
+    /* defaults */
+  }
+  return on;
+}
+function saveSoundSwitches(on) {
+  try {
+    localStorage.setItem(SOUND_KEY, JSON.stringify({ music: !!on.music, sfx: !!on.sfx }));
+  } catch {
+    /* not saved (private mode) */
+  }
+}
+
 export class AudioDirector {
   constructor() {
     this.ctx = null;
+    this.on = loadSoundSwitches(); // v30: Music / Sound effects on-off switches (localStorage "nh-sound-v1")
     this.levels = { music: 0.8, amb: 0.8, sfx: 0.9 };
     this.reducedStings = false;
     this.files = { music: new Set(), sfx: new Set(), loops: {} };
@@ -576,15 +598,20 @@ export class AudioDirector {
     this.muffle.frequency.value = 16000;
     this.amb.connect(this.muffle);
     this.muffle.connect(this.ambDuck);
-    this.ambDuck.connect(glue);
+    // v30 switches: two gates after the buses (separate from the volume sliders and ducks, so neither fights the other)
+    this.musicGate = g(this.on.music ? 1 : 0);
+    this.sfxGate = g(this.on.sfx ? 1 : 0);
+    this.musicGate.connect(glue);
+    this.sfxGate.connect(glue);
+    this.ambDuck.connect(this.sfxGate);
     this.music.connect(this.musicDuck);
-    this.musicDuck.connect(glue);
-    this.sfx.connect(glue);
+    this.musicDuck.connect(this.musicGate);
+    this.sfx.connect(this.sfxGate);
     // stings bypass the duck so they hit out of the silence
     this.stingBus = g(1);
     this.stingBus.connect(this.music);
     this.stingDirect = g(this.levels.music * BUS.music);
-    this.stingDirect.connect(glue);
+    this.stingDirect.connect(this.musicGate); // stings and music one-shots follow the music slider, so the Music switch
     // meters (QA): RMS after each duck
     this.meters = {};
     for (const [k, node] of [["music", this.musicDuck], ["amb", this.ambDuck], ["out", lim]]) {
@@ -597,7 +624,7 @@ export class AudioDirector {
     this.verb.buffer = impulse(c, 2.6, 2.4);
     this.verbOut = g(0.5);
     this.verb.connect(this.verbOut);
-    this.verbOut.connect(glue);
+    this.verbOut.connect(this.sfxGate);
     this.noise = noiseBuffer(c, 3.3);
     this.brown = noiseBuffer(c, 4.1, true);
     this.startBeds();
@@ -1260,6 +1287,7 @@ export class AudioDirector {
   // ---------------------------------------------------------------- effects
   /** Play an effect: a file from audio/sfx/ when present, otherwise the placeholder. */
   async fx(name, opts = {}) {
+    if (!this.on.sfx && !opts.music) return; // v30: Sound effects switch off (nothing decoded or scheduled)
     if (!(await this.ensureRunning())) return;
     if (/^ending(Escape|Capture)/.test(name)) this.endingHush(name); // v20: endings play into silence
     const pan = opts.pan || 0;
@@ -1593,6 +1621,44 @@ export class AudioDirector {
   // ---------------------------------------------------------------- Area 51 Escape
   /** Decode the level 1 pack (beds first) so the hangar has its air and the door is ready. */
   /** All-levels pass: decode level n's pack in the background (call when the level starts or its clip begins). */
+  // ---------------------------------------------------------------- v30 Music / Sound effects switches
+  /** Music on/off (music beds, stings, music one-shots). Instant, saved, safe before the first tap. */
+  setMusicOn(on) {
+    this.on.music = !!on;
+    this.applySwitches();
+  }
+  /** Sound effects on/off (effects, ambience, voices). */
+  setSfxOn(on) {
+    this.on.sfx = !!on;
+    this.applySwitches();
+  }
+  get musicOn() {
+    return this.on.music;
+  }
+  get sfxOn() {
+    return this.on.sfx;
+  }
+  applySwitches() {
+    saveSoundSwitches(this.on);
+    try {
+      if (this.ctx && this.musicGate) {
+        const t = this.ctx.currentTime;
+        for (const [gate, on] of [[this.musicGate, this.on.music], [this.sfxGate, this.on.sfx]]) {
+          gate.gain.cancelScheduledValues(t);
+          gate.gain.setValueAtTime(gate.gain.value, t);
+          gate.gain.linearRampToValueAtTime(on ? 1 : 0, t + 0.03); // 30 ms: instant, no click
+        }
+      }
+    } catch {
+      /* gates not built yet: build() reads this.on */
+    }
+    try {
+      document.dispatchEvent(new CustomEvent("nh-sound", { detail: { ...this.on } }));
+    } catch {
+      /* old Safari without CustomEvent constructor: the UI refreshes itself on tap */
+    }
+  }
+
   // ---------------------------------------------------------------- voice lines (v28)
   /**
    * A person spotted the craft: say("spot-<kind>", {kind, x, why}). One random line from that kind's pool (never the
@@ -1601,6 +1667,7 @@ export class AudioDirector {
    */
   async say(what, opts = {}) {
     try {
+      if (!this.on.sfx) return null; // v30: voices count as sound effects
       const kind = String((opts && opts.kind) || what || "").replace(/^spot-/, "");
       const pool = (VOICE_POOLS[kind] || []).filter((n) => this.files.sfx.has(n));
       if (!pool.length || this.voiceBusy) return null; // one line (or decode) at a time
@@ -1944,4 +2011,12 @@ if (typeof document !== "undefined") {
   audio.kick = kick;
   for (const ev of ["touchstart", "touchend", "pointerdown", "pointerup", "mousedown", "click", "keydown"])
     document.addEventListener(ev, kick, { capture: true, passive: true });
+}
+
+// v30: the two sound switches (self-contained UI in sound-ui.js, mounted into the menu and pause panels)
+try {
+  if (typeof document !== "undefined")
+    import("./sound-ui.js?v=30").then((m) => m.mountSoundUI(audio)).catch(() => {});
+} catch {
+  /* no dynamic import (very old browser): switches just don't show */
 }
