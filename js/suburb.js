@@ -3,11 +3,11 @@
 // the warning), then films straight up for 4 s. In its view cone and out of thick cloud you're exposed and caught
 // in ~2 s. Feeding near a house wakes its phone ~1.6 s in. A phone that has filmed is spent for 12 s.
 // Same rules as Area 51: no combat; hide / feed / burst / EMP (an EMP kills the phones in range for its duration).
-import { VH, GROUND, SUBURB, SUBURB_CLOUDS, TUNE } from "./config.js?v=29";
-import { rng, TAU } from "./util.js?v=29";
-import { Area51, Figure } from "./a51.js?v=29";
-import { audio } from "./audio.js?v=29";
-import { personSpotted } from "./people.js?v=29";
+import { VH, GROUND, SUBURB, SUBURB_CLOUDS, TUNE } from "./config.js?v=30";
+import { rng, TAU } from "./util.js?v=30";
+import { Area51, Figure } from "./a51.js?v=30";
+import { audio } from "./audio.js?v=30";
+import { personSpotted } from "./people.js?v=30";
 
 const HIDE = 0.62;
 const WIN_Y = GROUND - 62; // bedroom window height
