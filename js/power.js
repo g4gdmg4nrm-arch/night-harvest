@@ -4,11 +4,11 @@
 // Inside an alerted lamp's lit pool, out of thick cloud, exposure builds and you're caught in ~2 s.
 // Brushing a transformer arcs (l8StingArcFlash): every lamp near it alerts at once. EMP kills lamps in range.
 // Same rules as Area 51: no combat.
-import { VH, GROUND, POWER, POWER_CLOUDS, TUNE } from "./config.js?v=28";
-import { rng, TAU } from "./util.js?v=28";
-import { Area51, Figure } from "./a51.js?v=28";
-import { audio } from "./audio.js?v=28";
-import { personSpotted } from "./people.js?v=28";
+import { VH, GROUND, POWER, POWER_CLOUDS, TUNE } from "./config.js?v=29";
+import { clamp, rng, TAU } from "./util.js?v=29";
+import { Area51, Figure } from "./a51.js?v=29";
+import { audio } from "./audio.js?v=29";
+import { personSpotted } from "./people.js?v=29";
 
 const HIDE = 0.62;
 const LY = GROUND - POWER.lampH;
@@ -37,7 +37,7 @@ export class Power extends Area51 {
       this.camX = Math.max(0, this.cpPos.x - this.g.VW * 0.5);
       this.cows.forEach((cw, i) => (cw.gone = this.cpFed && this.cpFed.includes(i)));
     }
-    this.lamps = POWER.lamps.map((x) => ({ x, state: "calm", t: 0, cool: 0 }));
+    this.lamps = POWER.lamps.map((x) => ({ x, px: x, state: "calm", t: 0, cool: 0 }));
     for (const f of this.crew) f.reset();
     this.arcCool = 0;
     this.litSeen = false;
@@ -132,8 +132,12 @@ export class Power extends Area51 {
       } else if (L.state === "alert") {
         if (near) L.t = Math.max(L.t, 2);
         L.t -= dt;
-        if (L.t <= 0) (L.state = "calm"), (L.cool = 3), (this.crew[i].state = "idle");
-        const inPool = Math.abs(c.x - L.x) < POWER.poolR && c.y > POWER.poolY;
+        if (L.t <= 0) (L.state = "calm"), (L.cool = 3), (this.crew[i].state = "idle"), (L.px = L.x);
+        // v29: an alerted lamp swings its pool toward a craft that's low or feeding nearby (stops the low lamp-skim to the gap cow)
+        const chase = (c.feedAmt > 0.1 || c.y > POWER.poolY) && Math.abs(c.x - L.x) < POWER.swingR + POWER.poolR;
+        const want = chase ? clamp(c.x, L.x - POWER.swingR, L.x + POWER.swingR) : L.x;
+        L.px += clamp(want - L.px, -POWER.swingSpeed * dt, POWER.swingSpeed * dt);
+        const inPool = Math.abs(c.x - L.px) < POWER.poolR && c.y > POWER.poolY;
         if (inPool && !hidden) lit = true;
         const f = this.crew[i];
         if (inPool) (f.pointWant = 1), (f.dir = Math.sign(c.x - f.x) || f.dir), (f.pointAng = Math.atan2(c.y - (GROUND - 43), Math.abs(c.x - f.x)));
@@ -231,7 +235,7 @@ export class Power extends Area51 {
       ctx.drawImage(this.glowS, Lp.x - 22, LY - 22, 44, 44);
       // the lit pool (reads as the danger zone; full only when alerted)
       ctx.globalAlpha = 0.35 * k;
-      ctx.drawImage(this.glowS, Lp.x - POWER.poolR - 60, POWER.poolY, (POWER.poolR + 60) * 2, GROUND - POWER.poolY + 30);
+      ctx.drawImage(this.glowS, (Lp.px ?? Lp.x) - POWER.poolR - 60, POWER.poolY, (POWER.poolR + 60) * 2, GROUND - POWER.poolY + 30);
     }
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
