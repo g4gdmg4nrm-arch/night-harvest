@@ -1,7 +1,7 @@
 // Cloud cover. The SAME puff list (positions, sizes, sprite alpha, tear fade) is used both to draw
 // the clouds and to answer "how hidden is this point?", so what you see is what witnesses see.
 // Sprites lean on Josh's heights ref: tall volumetric cumulus + flatter horizontal layers.
-import { clamp, fbm2, makeCanvas, rng, smoothstep, TAU, damp } from "./util.js?v=29";
+import { clamp, fbm2, makeCanvas, rng, smoothstep, TAU, damp } from "./util.js?v=30";
 
 const S = 128; // sprite resolution
 const VARIANTS = 6; // 0-2 tall cumulus, 3-5 flatter layers
